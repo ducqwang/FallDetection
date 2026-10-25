@@ -1,5 +1,7 @@
 # Fall Detection from Surveillance Video — Nhóm 05
 
+Repo: https://github.com/ducqwang/FallDetection
+
 Hệ thống phát hiện té ngã tự động trong video giám sát (Object Detection + Tracking + Action/Event Recognition).
 Môn: Một số vấn đề chọn lọc về Thị giác máy tính — MAT3563 (2026–2027).
 
