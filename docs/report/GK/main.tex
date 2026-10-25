@@ -1,0 +1,506 @@
+\RequirePackage{fix-cm}
+\documentclass[fontsize=13pt,a4paper,oneside,DIV=calc,chapterprefix=true]{scrbook}
+
+% ---- Gói hỗ trợ tiếng Việt và bảng mã ----
+\usepackage[utf8]{vietnam}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathptmx}
+
+% ---- Định dạng trang và căn lề ----
+\usepackage{geometry}
+\geometry{a4paper,top=2.2cm,bottom=2.2cm,left=2.8cm,right=2.2cm}
+\usepackage{setspace}
+\setstretch{1.3}
+
+% ---- Đồ họa, màu sắc và hình vẽ TikZ ----
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds, calc, shapes.geometric}
+
+% ---- Bảng biểu và danh sách ----
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{longtable}
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{M}[1]{>{\centering\arraybackslash}m{#1}}
+\usepackage{enumitem}
+
+% ---- Tiêu đề trang, liên kết và caption ----
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue
+}
+
+\definecolor{blueborder}{RGB}{0,102,204}
+\definecolor{eelanblue}{RGB}{220,235,252}
+\definecolor{eelanorange}{RGB}{254,237,222}
+\definecolor{eelangreen}{RGB}{229,245,224}
+\definecolor{eelanpurple}{RGB}{242,234,250}
+
+% Macro chèn ảnh an toàn: Nếu có ảnh thì hiển thị, nếu chưa có thì hiển thị khung placeholder
+\newcommand{\safeimage}[3]{%
+    \IfFileExists{#1}{%
+        \includegraphics[#2]{#1}%
+    }{%
+        \fbox{%
+            \begin{minipage}[c][4.5cm][c]{0.88\linewidth}
+            \centering
+            \footnotesize \textbf{[Hình sẽ cập nhật từ kết quả chạy trên Kaggle]}\\[0.15cm]
+            Đường dẫn tệp: \texttt{\detokenize{#1}}\\[0.1cm]
+            \textit{#3}
+            \end{minipage}%
+        }%
+    }%
+}
+
+% Định nghĩa trang bìa tiêu chuẩn theo mẫu Trường ĐHKHTN - ĐHQGHN
+\newcommand{\customtitlepage}{
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+    \setlength{\fboxsep}{4pt}
+    \setlength{\fboxrule}{1.2pt}
+    {\color{blueborder}\fbox{\fbox{\color{black}
+    \begin{minipage}{0.93\textwidth}
+    \vspace{0.5cm}
+    \begin{center}
+        \textbf{\large ĐẠI HỌC QUỐC GIA HÀ NỘI}\\
+        \textbf{\large TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN}\\
+        \textbf{\large KHOA TOÁN - CƠ - TIN HỌC}\\[0.6cm]
+
+        \IfFileExists{logo/logo_hus.jpg}{%
+            \includegraphics[width=3.2cm]{logo/logo_hus.jpg}\par
+            \vspace{0.5cm}
+        }{%
+            \vspace*{1.5cm}
+        }
+
+        \textbf{{\LARGE MỘT SỐ VẤN ĐỀ CHỌN LỌC VỀ THỊ GIÁC MÁY TÍNH}}\\[0.2cm]
+        \textbf{\large MÃ HỌC PHẦN: MAT3563}\\[0.4cm]
+        \hrule height 1.2pt
+        \vspace{0.6cm}
+        \textit{\Large BÁO CÁO GIỮA KỲ}\\[0.35cm]
+        \textbf{\huge HỆ THỐNG PHÁT HIỆN TÉ NGÃ TỰ ĐỘNG TRONG VIDEO GIÁM SÁT}\\[0.4cm]
+        \textbf{\Large (FALL DETECTION FROM SURVEILLANCE VIDEO)}\\[0.6cm]
+        \hrule height 1.2pt
+        \vspace{1.3cm}
+
+        \begin{flushleft}
+        \hspace{0.8cm}\textbf{\large Giảng viên hướng dẫn:} TS. Cao Văn Chung \\[0.4cm]
+
+        \hspace{0.8cm}\textbf{\large Nhóm thực hiện:} Nhóm 05\\[0.25cm]
+        \hspace{0.8cm}
+        \begin{tabular}{@{}clll@{}}
+            \textbf{STT} & \textbf{Họ và tên} & \textbf{MSSV} & \textbf{Lớp} \\[0.1cm]
+            1 & Hoàng Minh Quang  & 23001917 & K68A4\\
+            2 & Nguyễn Đức Quang  & 23001918 & K68A4\\
+            3 & Hà Minh Quang     & 23001916 & K68A4\\
+        \end{tabular}
+        \end{flushleft}
+
+        \vfill
+        {\large \textbf{Hà Nội, 11/2026}}
+        \vspace{0.5cm}
+    \end{center}
+    \end{minipage}
+    }}}
+\end{center}
+\end{titlepage}
+}
+
+\begin{document}
+
+\customtitlepage
+
+\frontmatter
+
+\chapter*{\centering Lời cảm ơn}
+\addcontentsline{toc}{chapter}{Lời cảm ơn}
+
+Để hoàn thành báo cáo giữa kỳ của học phần \textit{Một số vấn đề chọn lọc về Thị giác máy tính (MAT3563)}, nhóm chúng em xin bày tỏ lòng biết ơn chân thành tới \textbf{TS. Cao Văn Chung}. Thầy đã tận tình giảng dạy và truyền đạt những kiến thức hiện đại về thị giác máy tính --- từ các kiến trúc phát hiện đối tượng, theo vết đối tượng cho đến các mô hình chuỗi thời gian --- cũng như định hướng rõ ràng về quy trình thực hiện một dự án trí tuệ nhân tạo hoàn chỉnh.
+
+Báo cáo này trình bày phần công việc giai đoạn giữa kỳ của đề tài \textit{Phát hiện té ngã tự động trong video giám sát}. Mặc dù nhóm đã nỗ lực nghiên cứu lý thuyết, chuẩn bị dữ liệu và thực nghiệm bước đầu một cách nghiêm túc, báo cáo chắc chắn còn những hạn chế. Nhóm kính mong nhận được ý kiến nhận xét quý báu từ Thầy để tiếp tục hoàn thiện ở giai đoạn cuối kỳ.
+
+\vspace{0.5cm}
+\begin{flushright}
+\textit{Hà Nội, tháng 11 năm 2026}\\
+\textbf{Nhóm 05}
+\end{flushright}
+
+\chapter*{\centering Tóm tắt báo cáo}
+\addcontentsline{toc}{chapter}{Tóm tắt báo cáo}
+
+Té ngã là một trong những nguyên nhân hàng đầu gây chấn thương nghiêm trọng ở người cao tuổi và bệnh nhân; việc phát hiện sớm và cảnh báo kịp thời có ý nghĩa quan trọng trong chăm sóc sức khỏe. Báo cáo trình bày đề tài \textbf{Hệ thống phát hiện té ngã tự động trong video giám sát} theo \textbf{định hướng ứng dụng}: sử dụng hai bộ dữ liệu công khai chuyên dụng là \textbf{UR Fall Detection (URFD)} và \textbf{Le2i Fall Detection}, xây dựng một quy trình (pipeline) hoàn chỉnh gồm ba bài toán thị giác máy tính kết hợp: \textit{phát hiện người} (Object Detection), \textit{theo vết đa đối tượng} (Multi-Object Tracking) và \textit{nhận dạng sự kiện té ngã} (Action/Event Recognition).
+
+Theo đúng yêu cầu sử dụng tối thiểu ba phương pháp cho bài toán chính, nhóm so sánh \textbf{ba mô hình} phát hiện té ngã theo ba hướng tiếp cận khác nhau: (M1) mô hình \textit{hình học dựa trên luật} (rule-based) trên đặc trưng khung bao; (M2) mô hình \textit{khung xương + chuỗi thời gian} (keypoint pose kết hợp LSTM/GRU); và (M3) mô hình \textit{CNN kết hợp GRU} trên ảnh vùng người. Bộ phát hiện và theo vết dùng chung là \textbf{YOLO11 + ByteTrack}.
+
+Trong giai đoạn giữa kỳ, báo cáo tập trung vào: (i) mô tả và trực quan hóa dữ liệu kèm bước \textit{trích xuất đặc trưng}, \textit{giảm chiều} (PCA/t-SNE) và \textit{thống kê EDA}; (ii) chia tập dữ liệu theo video kèm giao thức \textit{cross-dataset} chống rò rỉ; (iii) trình bày đầy đủ cơ sở lý thuyết và kiến trúc của cả ba mô hình; và (iv) thực nghiệm bước đầu Mô hình 1 cùng với việc thiết lập giao thức đánh giá thống nhất ở mức sự kiện. Sản phẩm cuối cùng hướng tới một ứng dụng Web Demo cho người dùng không chuyên môn. Toàn bộ mã nguồn được công khai tại kho GitHub của nhóm.
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\mainmatter
+
+\fancyhead{}
+\fancyhead[L]{\small MAT3563: Báo cáo giữa kỳ}
+\fancyhead[R]{\small Fall Detection --- Nhóm 05}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\pagestyle{fancy}
+
+% ==============================================================================
+% CHƯƠNG 1
+% ==============================================================================
+\chapter{Đặt vấn đề và Mục tiêu}
+\label{chap:intro}
+
+\section{Bối cảnh}
+Theo Tổ chức Y tế Thế giới, té ngã là nguyên nhân gây tử vong do thương tích đứng thứ hai trên toàn cầu, đặc biệt nguy hiểm với người cao tuổi sống một mình và bệnh nhân trong cơ sở y tế. Hậu quả của một cú ngã không chỉ là chấn thương tức thời (gãy xương, chấn thương sọ não) mà còn là khoảng thời gian nằm bất động kéo dài sau ngã nếu không được phát hiện kịp thời. Do đó, một hệ thống có khả năng \textbf{tự động phát hiện và cảnh báo té ngã} từ camera giám sát mang lại giá trị thực tiễn rõ ràng cho chăm sóc sức khỏe tại nhà và bệnh viện.
+
+So với các giải pháp dùng cảm biến đeo trên người (gia tốc kế, con quay hồi chuyển) --- vốn gây bất tiện và dễ bị người dùng quên đeo --- giải pháp \textbf{dựa trên thị giác máy tính} có ưu điểm không xâm lấn, tận dụng hạ tầng camera sẵn có. Thách thức đặt ra là phân biệt chính xác hành vi té ngã thật với các hoạt động sinh hoạt dễ gây nhầm lẫn (cúi nhặt đồ, ngồi xuống nhanh, nằm xuống giường) để giảm thiểu báo động giả.
+
+\section{Phát biểu bài toán}
+Bài toán được phát biểu như sau:
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Đầu vào:} một đoạn video giám sát (tệp tải lên hoặc luồng webcam), gồm chuỗi khung hình liên tiếp.
+    \item \textbf{Đầu ra:} với mỗi khung hình, khung bao (bounding box) và định danh (ID) của từng người; trạng thái \emph{``bình thường''} hoặc \emph{``té ngã''}; và khi phát hiện té ngã thì sinh cảnh báo kèm mốc thời gian cùng độ tin cậy.
+\end{itemize}
+Về bản chất, đây là bài toán tổ hợp của ba tác vụ thị giác máy tính:
+\begin{enumerate}[leftmargin=1.2cm]
+    \item \textbf{Phát hiện đối tượng} (Object Detection): xác định vị trí người trong từng khung hình.
+    \item \textbf{Theo vết đa đối tượng} (Multi-Object Tracking): duy trì ID nhất quán của mỗi người qua các khung hình, tạo thành quỹ đạo thời gian.
+    \item \textbf{Nhận dạng sự kiện} (Action/Event Recognition): phân loại chuỗi chuyển động của mỗi người thành ``té ngã'' hoặc ``bình thường''.
+\end{enumerate}
+
+\section{Định hướng, mục tiêu và đóng góp}
+Đề tài được thực hiện theo \textbf{định hướng ứng dụng}: nhóm sử dụng trực tiếp các bộ dữ liệu công khai do học phần gợi ý (UR Fall, Le2i) và xây dựng một \textbf{sản phẩm có giao diện tương tác} cho người dùng không có chuyên môn lập trình (nhận video đầu vào, cho phép lựa chọn mô hình/độ nhạy, hiển thị kết quả trực quan và cảnh báo). Các mục tiêu cụ thể:
+\begin{enumerate}[leftmargin=1.2cm]
+    \item Xây dựng pipeline phát hiện người $\rightarrow$ theo vết ID $\rightarrow$ phân loại sự kiện té ngã, hoàn chỉnh từ video đến cảnh báo.
+    \item So sánh \textbf{ba mô hình} phát hiện té ngã theo ba hướng tiếp cận khác biệt (hình học/khung xương/CNN thời gian) trên cùng một giao thức đánh giá, từ đó phân tích sự đánh đổi giữa độ chính xác, tốc độ và khả năng giải thích.
+    \item Đóng gói thành Web Demo và công khai mã nguồn để tái lập được kết quả.
+\end{enumerate}
+
+\section{Quy trình thực hiện dự án AI}
+Toàn bộ đề tài tuân theo vòng đời chuẩn của một dự án trí tuệ nhân tạo, và báo cáo được tổ chức bám sát quy trình này:
+\begin{enumerate}[leftmargin=1.2cm]
+    \item \textbf{Xác định vấn đề:} phát biểu bài toán, đầu vào/đầu ra, độ đo thành công (Chương~\ref{chap:intro}).
+    \item \textbf{Chọn dữ liệu:} lựa chọn UR Fall và Le2i, phân tích vai trò và hạn chế (Chương~\ref{chap:data}).
+    \item \textbf{Xử lý dữ liệu:} tiền xử lý, tăng cường, trích xuất đặc trưng, giảm chiều và trực quan hóa (Chương~\ref{chap:data}).
+    \item \textbf{Mô hình hóa:} ba mô hình cùng pipeline phát hiện/theo vết (Chương~\ref{chap:method}).
+    \item \textbf{Đánh giá kết quả:} giao thức đánh giá mức sự kiện và kết quả sơ bộ (Chương~\ref{chap:eval}).
+\end{enumerate}
+
+\section{Phạm vi giữa kỳ và phần để lại cuối kỳ}
+Theo yêu cầu của học phần đối với đề tài dữ liệu video, mốc giữa kỳ cần: có dữ liệu và thống kê sơ bộ; trình bày lý thuyết/kiến trúc của cả ba mô hình; và thực nghiệm được ít nhất một mô hình. Bảng~\ref{tab:scope} nêu rõ phạm vi.
+
+\begin{table}[H]
+\centering
+\caption{Phạm vi công việc giữa kỳ (GK) và phần để lại cuối kỳ (CK)}
+\label{tab:scope}
+\small
+\begin{tabularx}{\linewidth}{@{}p{4.6cm}X@{}}
+\toprule
+\textbf{Giữa kỳ (báo cáo này)} & \textbf{Cuối kỳ (giai đoạn sau)} \\
+\midrule
+Tải, chuẩn hóa UR Fall + Le2i; chia tập theo video + cross-dataset & Huấn luyện đầy đủ M2, M3; tinh chỉnh ngưỡng M1 \\
+EDA (5 biểu đồ) gồm giảm chiều PCA/t-SNE & Chạy đủ thí nghiệm TN1--TN3 (TN4 tùy chọn) \\
+Lý thuyết + kiến trúc cả 3 mô hình & Phân tích lỗi, so sánh within/cross-dataset \\
+Thực nghiệm bước đầu Mô hình 1; thiết lập giao thức đánh giá & Hoàn thiện Web Demo + kiểm thử người dùng; báo cáo 5 chương \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Phân công nhóm}
+Nhóm gồm 03 thành viên, phân chia theo ba trục chuyên trách nhưng cùng phối hợp xây dựng sản phẩm chung:
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Hoàng Minh Quang (23001917)} --- Dữ liệu \& đánh giá: tải/chuẩn hóa dữ liệu, script tiền xử lý và tăng cường, chia tập theo video, 5 biểu đồ EDA; giao thức và script đánh giá thống nhất; Chương~1--2.
+    \item \textbf{Nguyễn Đức Quang (23001918)} --- Phát hiện/theo vết \& Mô hình 1, 2: thiết lập YOLO11 + ByteTrack, thực nghiệm Mô hình 1, xây dựng Mô hình 2 (pose + LSTM/GRU); phần lý thuyết tương ứng trong Chương~3.
+    \item \textbf{Hà Minh Quang (23001916)} --- Mô hình 3 \& hệ thống: khởi tạo kho mã và pipeline, xây dựng Mô hình 3 (CNN + GRU), tích hợp và Web Demo; tổng hợp báo cáo.
+\end{itemize}
+
+% ==============================================================================
+% CHƯƠNG 2
+% ==============================================================================
+\chapter{Dữ liệu và Quy trình chuẩn bị}
+\label{chap:data}
+
+\section{Nguồn dữ liệu}
+Nhóm sử dụng hai bộ dữ liệu té ngã công khai, chuyên dụng và được trích dẫn rộng rãi trong các nghiên cứu phát hiện té ngã.
+
+\begin{table}[H]
+\centering
+\caption{So sánh hai bộ dữ liệu công khai sử dụng trong đề tài}
+\label{tab:datasets}
+\small
+\begin{tabularx}{\linewidth}{@{}p{3.1cm}XX@{}}
+\toprule
+\textbf{Thuộc tính} & \textbf{UR Fall Detection (URFD)} & \textbf{Le2i Fall Detection} \\
+\midrule
+Quy mô & 70 chuỗi (30 té ngã + 40 sinh hoạt thường) & 191 video (≈143 té ngã + phần còn lại ADL), 9 đối tượng \\
+Bối cảnh / camera & Trong nhà; té ngã quay bằng 2 camera Kinect, ADL 1 camera; 30 fps & 4 bối cảnh (Home, Coffee room, Office, Lecture room); 25 fps; $320\times240$ \\
+Phương thức & RGB + depth (PNG 16-bit) + gia tốc kế & RGB \\
+Nhãn có sẵn & Nhãn mức chuỗi; không có khung bao người & Mốc frame bắt đầu/kết thúc ngã + khung bao từng frame \\
+Vai trò & Nguồn chính A (dùng RGB) & Nguồn chính B (dùng khung bao để đo mAP) \\
+Giấy phép & CC BY-NC & Nghiên cứu/học thuật \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Việc dùng \emph{đồng thời} hai bộ dữ liệu với phân phối khác nhau (độ phân giải, góc camera, bối cảnh) cho phép thực hiện đánh giá \textbf{chéo bộ dữ liệu} (cross-dataset) --- một bằng chứng mạnh về khả năng tổng quát hóa, thay thế cho tập kiểm thử độc lập.
+
+\section{Tiền xử lý và tăng cường dữ liệu}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Đọc và lấy mẫu khung hình:} URFD được lưu dạng chuỗi ảnh PNG, Le2i dạng video; nhóm thống nhất đọc về chuỗi khung hình và \textit{lấy mẫu theo tần số} (ví dụ 5 fps) nhằm giảm trùng lặp giữa các frame liền kề.
+    \item \textbf{Chuẩn hóa:} đổi kích thước vùng người về $224\times224$; chuẩn hóa điểm ảnh theo trung bình/độ lệch chuẩn ImageNet ($\mu=[0.485,0.456,0.406]$, $\sigma=[0.229,0.224,0.225]$) cho nhánh CNN.
+    \item \textbf{Tăng cường dữ liệu} (quan trọng do dữ liệu nhỏ): lật ngang, biến đổi độ sáng/tương phản, làm mờ chuyển động, cắt xén ngẫu nhiên; ở mức video bổ sung thay đổi tốc độ phát để đa dạng hóa nhịp chuyển động.
+\end{itemize}
+
+\section{Trích xuất đặc trưng và giảm chiều}
+\label{sec:feature}
+Theo yêu cầu của học phần về \textit{trích xuất đặc trưng}, \textit{giảm chiều} và \textit{trực quan hóa}, nhóm xây dựng ba loại đặc trưng và áp dụng giảm chiều để kiểm tra khả năng phân tách của chúng:
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Đặc trưng hình học} từ khung bao: tỉ lệ cạnh $w/h$, vận tốc và gia tốc theo phương dọc của tâm khung bao, mức bất động sau chuyển động. Đây là đặc trưng cho Mô hình 1.
+    \item \textbf{Đặc trưng khung xương} (keypoint): toạ độ các khớp do YOLO11-pose trích xuất, chuẩn hóa theo khung bao để bất biến với vị trí và kích thước. Dùng cho Mô hình 2.
+    \item \textbf{Đặc trưng CNN:} vector đặc trưng từ backbone tích chập tiền huấn luyện (đóng băng) áp lên ảnh vùng người. Dùng cho Mô hình 3.
+\end{itemize}
+Các vector đặc trưng được \textbf{giảm chiều} bằng PCA và t-SNE \cite{tsne} xuống không gian 2D và vẽ phân tán, tô màu theo nhãn \emph{té ngã}/\emph{bình thường}, nhằm trực quan hóa mức độ phân tách giữa hai lớp (Hình~\ref{fig:tsne}).
+
+\section{Chia tập dữ liệu và chống rò rỉ}
+Nguyên tắc cốt lõi: \textbf{chia theo video/đối tượng, không chia theo frame}. Các frame liền kề trong một video gần như giống nhau; nếu chia ngẫu nhiên theo frame, cùng một cảnh sẽ đồng thời xuất hiện ở tập huấn luyện và kiểm thử, gây rò rỉ dữ liệu (data leakage) và đánh giá lạc quan sai lệch. Cụ thể:
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Within-dataset:} mỗi bộ chia train/val/test theo tỉ lệ $70/15/15$ theo video, cố định hạt giống ngẫu nhiên ($\mathrm{seed}=42$) và lưu danh sách chia.
+    \item \textbf{Cross-dataset:} Giao thức A --- huấn luyện trên URFD, kiểm thử trên toàn bộ Le2i; Giao thức B --- huấn luyện trên Le2i, kiểm thử trên URFD.
+    \item Với URFD, hai góc camera (\texttt{cam0}, \texttt{cam1}) của cùng một chuỗi luôn được đặt vào cùng một tập để tránh rò rỉ.
+\end{itemize}
+
+\section{Thống kê và trực quan hóa dữ liệu (EDA)}
+Nhóm thực hiện năm biểu đồ phân tích khám phá dữ liệu để người đọc nắm được phân bố tổng thể:
+
+\begin{figure}[H]
+\centering
+\safeimage{figures/eda_dist.png}{width=0.9\linewidth}{Phân bố số video theo lớp/nguồn và theo bối cảnh/góc camera.}
+\caption{EDA 1--4: phân bố theo lớp và nguồn, độ dài clip, tỉ lệ frame té ngã, phân bố bối cảnh/góc camera.}
+\label{fig:eda}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\safeimage{figures/tsne.png}{width=0.72\linewidth}{Giảm chiều t-SNE của đặc trưng, tô màu theo nhãn té ngã / bình thường.}
+\caption{EDA 5: giảm chiều đặc trưng bằng PCA/t-SNE để trực quan hóa khả năng phân tách hai lớp.}
+\label{fig:tsne}
+\end{figure}
+
+\noindent Hai nhận xét định tính dự kiến rút ra từ EDA: (i) lớp \emph{té ngã} chiếm tỉ lệ nhỏ về số frame so với \emph{bình thường} --- do đó độ đo chính phải là Precision/Recall/F1 ở mức sự kiện chứ không phải Accuracy; (ii) đặc trưng hình học/khung xương có mức phân tách tốt giữa hai lớp trong không gian giảm chiều, ủng hộ hướng tiếp cận dùng đặc trưng nhẹ cho dữ liệu nhỏ.
+
+\section{Đạo đức dữ liệu và hạn chế đã biết}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Hai bộ dữ liệu chủ yếu do người trẻ mô phỏng té ngã trong nhà, đủ sáng; vì vậy kết quả chỉ phản ánh khả năng phát hiện \emph{té ngã mô phỏng} và không khẳng định hiệu quả tuyệt đối trên người cao tuổi thực tế hay trong điều kiện thiếu sáng/ban đêm.
+    \item Dữ liệu tuân thủ giấy phép sử dụng (URFD: CC BY-NC) và được trích dẫn đầy đủ; nhóm không công khai dữ liệu có hình ảnh người thật lên kho mã.
+\end{itemize}
+
+% ==============================================================================
+% CHƯƠNG 3
+% ==============================================================================
+\chapter{Phương pháp và Kiến trúc mô hình}
+\label{chap:method}
+
+\section{Tổng quan pipeline}
+Hệ thống gồm một \textbf{chân đế dùng chung} (phát hiện + theo vết) và \textbf{ba mô hình phân loại sự kiện} té ngã cùng sử dụng đầu ra của chân đế này, bảo đảm so sánh công bằng. Sơ đồ tổng thể trình bày ở Hình~\ref{fig:pipeline}.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\footnotesize, >=Latex, node distance=0.9cm and 1.0cm,
+    box/.style={rounded corners=4pt, line width=0.8pt, align=center, inner sep=5pt},
+    inb/.style={box, draw=black, fill=gray!12, text width=2.1cm, minimum height=0.9cm},
+    det/.style={box, draw=blueborder, fill=eelanblue, text width=2.3cm, minimum height=0.9cm},
+    trk/.style={box, draw=teal!70!black, fill=eelangreen, text width=2.3cm, minimum height=0.9cm},
+    mdl/.style={box, draw=orange!80!black, fill=eelanorange, text width=3.0cm, minimum height=0.8cm},
+    out/.style={box, draw=red!70!black, fill=red!10, text width=2.3cm, minimum height=0.9cm},
+    arrow/.style={->, line width=0.9pt, draw=black!80}
+]
+\node[inb] (vid) {\textbf{Video}\\khung hình};
+\node[det, right=of vid] (det) {\textbf{YOLO11}\\phát hiện người\\(bbox)};
+\node[trk, right=of det] (trk) {\textbf{ByteTrack}\\gán ID\\(Kalman + Hungarian)};
+
+\node[mdl, right=1.2cm of trk, yshift=1.4cm] (m1) {\textbf{M1} --- Rule-based\\đặc trưng hình học};
+\node[mdl, right=1.2cm of trk] (m2) {\textbf{M2} --- Pose + LSTM/GRU\\keypoint chuỗi thời gian};
+\node[mdl, right=1.2cm of trk, yshift=-1.4cm] (m3) {\textbf{M3} --- CNN + GRU\\đặc trưng ảnh vùng người};
+
+\node[out, right=1.2cm of m2] (al) {\textbf{Cảnh báo}\\``TÉ NGÃ''\\+ mốc thời gian};
+
+\draw[arrow] (vid) -- (det);
+\draw[arrow] (det) -- (trk);
+\draw[arrow] (trk.east) -- ++(0.5,0) |- (m1.west);
+\draw[arrow] (trk.east) -- (m2.west);
+\draw[arrow] (trk.east) -- ++(0.5,0) |- (m3.west);
+\draw[arrow] (m1.east) -| ++(0.5,0) |- (al.west);
+\draw[arrow] (m2.east) -- (al.west);
+\draw[arrow] (m3.east) -| ++(0.5,0) |- (al.west);
+\end{tikzpicture}%
+}
+\caption{Sơ đồ tổng thể: chân đế YOLO11 + ByteTrack dùng chung, ba mô hình phân loại té ngã song song.}
+\label{fig:pipeline}
+\end{figure}
+
+\section{Phát hiện người với YOLO11}
+Nhóm dùng YOLO11 \cite{yolo} (họ mô hình phát hiện đối tượng một giai đoạn của Ultralytics) với trọng số tiền huấn luyện trên COCO, lọc riêng lớp \emph{person}. YOLO11 dự đoán đồng thời khung bao và điểm tin cậy trong một lần suy luận, đạt cân bằng tốt giữa độ chính xác và tốc độ (phù hợp yêu cầu thời gian thực của ứng dụng cảnh báo). Ở giai đoạn cuối kỳ, nhóm so sánh hai cỡ mô hình YOLO11n và YOLO11s về mAP@0.5 và FPS (Thí nghiệm~1), tận dụng khung bao có sẵn của Le2i làm nhãn chuẩn.
+
+\section{Theo vết đa đối tượng với ByteTrack}
+ByteTrack \cite{bytetrack} là phương pháp \textit{tracking-by-detection}: nó liên kết các khung bao giữa các khung hình để duy trì ID nhất quán, dựa trên hai thành phần kinh điển:
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Bộ lọc Kalman} dự đoán vị trí khung bao ở khung hình kế tiếp theo mô hình chuyển động tuyến tính, với trạng thái gồm vị trí, kích thước và vận tốc.
+    \item \textbf{Thuật toán Hungarian} giải bài toán gán tối ưu giữa các dự đoán và các phát hiện mới dựa trên ma trận chi phí IoU.
+\end{itemize}
+Điểm đặc trưng của ByteTrack là tận dụng \emph{cả các khung bao có điểm tin cậy thấp} trong bước liên kết thứ hai, giúp giữ ID khi đối tượng bị che khuất một phần hoặc mờ --- rất phù hợp bối cảnh giám sát. Quỹ đạo (chuỗi khung bao theo ID) là đầu vào trực tiếp cho ba mô hình phân loại.
+
+\section{Mô hình 1 --- Hình học dựa trên luật (Rule-based)}
+Mô hình 1 \textbf{không cần huấn luyện}, đóng vai trò baseline tham chiếu và là mô hình được thực nghiệm ở giữa kỳ. Ý tưởng: một cú té ngã thể hiện qua ba dấu hiệu hình học của khung bao người theo thời gian: (1) khung bao chuyển nhanh từ dạng \emph{đứng} (cao hơn rộng) sang dạng \emph{nằm} (rộng hơn cao); (2) tâm khung bao rơi xuống với vận tốc dọc tăng đột ngột; (3) sau đó là giai đoạn ít chuyển động.
+
+Gọi khung bao tại khung hình $t$ có chiều rộng $w_t$, chiều cao $h_t$ và tâm $(c^x_t, c^y_t)$. Các đại lượng đặc trưng:
+\begin{equation}
+r_t = \frac{w_t}{h_t} \quad (\text{tỉ lệ cạnh}), \qquad
+v^y_t = c^y_t - c^y_{t-1} \quad (\text{vận tốc dọc}), \qquad
+a^y_t = v^y_t - v^y_{t-1} \quad (\text{gia tốc dọc}).
+\end{equation}
+Luật phát hiện té ngã tại khung hình $t$:
+\begin{equation}
+\mathrm{Fall}(t) = \mathbb{1}\!\left[\, r_t > \tau_r \;\wedge\; v^y_t > \tau_v \,\right],
+\end{equation}
+với $\tau_r, \tau_v$ là các ngưỡng được tinh chỉnh trên tập val ở cuối kỳ (tìm kiếm lưới để tối đa F1 mức sự kiện). Ưu điểm: nhanh, nhẹ, dễ giải thích, không cần dữ liệu huấn luyện; nhược điểm: nhạy với góc camera và che khuất.
+
+\section{Mô hình 2 --- Khung xương + chuỗi thời gian (Pose + LSTM/GRU)}
+Mô hình 2 trích \textbf{keypoint} của mỗi người (theo ID) bằng YOLO11-pose, chuẩn hóa theo khung bao thành chuỗi véc-tơ $\mathbf{x}_1, \dots, \mathbf{x}_T$ với $\mathbf{x}_t \in \mathbb{R}^{K\cdot 2}$ ($K$ khớp). Chuỗi này được phân loại bằng mạng hồi tiếp LSTM/GRU \cite{lstm}. Với GRU, trạng thái ẩn cập nhật theo:
+\begin{align}
+z_t &= \sigma(W_z \mathbf{x}_t + U_z h_{t-1}), \qquad r_t = \sigma(W_r \mathbf{x}_t + U_r h_{t-1}),\\
+\tilde{h}_t &= \tanh(W_h \mathbf{x}_t + U_h (r_t \odot h_{t-1})), \qquad
+h_t = (1 - z_t)\odot h_{t-1} + z_t \odot \tilde{h}_t,
+\end{align}
+và xác suất té ngã lấy từ trạng thái ẩn cuối: $\hat{p} = \sigma(\mathbf{w}^\top h_T + b)$. Ưu điểm: đặc trưng khung xương bất biến với trang phục/nền, số tham số nhỏ, phù hợp dữ liệu ít.
+
+\section{Mô hình 3 --- CNN kết hợp GRU}
+Mô hình 3 khai thác thông tin \textbf{hình ảnh bề ngoài} (appearance). Mỗi vùng người được cắt theo khung bao, đưa qua một backbone CNN tiền huấn luyện (MobileNetV2/ResNet) \textbf{đóng băng} để trích đặc trưng $\mathbf{f}_t \in \mathbb{R}^{D}$ cho từng khung hình; chuỗi $\mathbf{f}_1,\dots,\mathbf{f}_T$ được phân loại bằng GRU. Việc đóng băng backbone cùng với tăng cường dữ liệu mạnh và dropout là chiến lược chống quá khớp (overfitting) trên dữ liệu nhỏ. Về mặt cài đặt, do backbone đóng băng, nhóm \emph{tiền tính} đặc trưng CNN một lần rồi huấn luyện riêng phần GRU --- tương đương về mặt toán học nhưng nhanh hơn nhiều khi chạy trên Kaggle.
+
+\section{Vì sao so sánh ba hướng?}
+Ba mô hình đại diện ba triết lý khác nhau: luật hình học (nhanh, giải thích được, không cần dữ liệu), khung xương (bất biến hình thái), và CNN (giàu thông tin hình ảnh). So sánh trên cùng giao thức cho phép rút ra \textbf{sự đánh đổi} giữa độ chính xác, tốc độ và khả năng giải thích --- đúng tinh thần ``sử dụng ít nhất ba phương pháp, đánh giá và giải thích'' của đề cương.
+
+% ==============================================================================
+% CHƯƠNG 4
+% ==============================================================================
+\chapter{Thiết lập đánh giá và Kết quả sơ bộ}
+\label{chap:eval}
+
+\section{Giao thức đánh giá thống nhất}
+Do lớp té ngã rất hiếm ở mức frame, nhóm đánh giá chủ yếu ở \textbf{mức sự kiện} với một \emph{cửa sổ dung sai thời gian}. Một cảnh báo được tính là đúng (True Positive) nếu nó rơi trong khoảng $[\,t_{\text{start}} - T,\; t_{\text{end}} + T\,]$ của một sự kiện té ngã thật (đề xuất $T = 1{,}0$ giây); cảnh báo ngoài khoảng là False Positive; sự kiện ngã không có cảnh báo trùng là False Negative. Định nghĩa này giúp kết quả \textbf{tái lập được} và được ghi rõ trong báo cáo.
+
+\begin{table}[H]
+\centering
+\caption{Bộ độ đo đánh giá}
+\label{tab:metrics}
+\small
+\begin{tabularx}{\linewidth}{@{}p{3.6cm}X@{}}
+\toprule
+\textbf{Nhóm} & \textbf{Chỉ số} \\
+\midrule
+Mức sự kiện (chính) & Precision, Recall, F1; False Alarm Rate (số báo giả/giờ); độ trễ cảnh báo (giây) \\
+Mức frame (phụ) & Accuracy, ROC-AUC, PR-AUC \\
+Phát hiện người & mAP@0.5 (trên khung bao Le2i) \\
+Theo vết (tùy chọn) & IDF1, số lần đổi ID (TrackEval) \\
+Hiệu năng & FPS end-to-end \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả sơ bộ Mô hình 1}
+Bảng~\ref{tab:prelim} trình bày khuôn mẫu kết quả thực nghiệm bước đầu của Mô hình 1 (rule-based, ngưỡng mặc định) trên tập kiểm thử. Các giá trị số sẽ được điền sau khi chạy đầy đủ trên Kaggle; giao thức và script đánh giá đã sẵn sàng và công khai cùng mã nguồn.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả sơ bộ Mô hình 1 (rule-based) --- giá trị cập nhật từ lần chạy trên Kaggle}
+\label{tab:prelim}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Tập kiểm thử} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{FAR (/giờ)} \\
+\midrule
+Within Le2i (test) & -- & -- & -- & -- \\
+Within URFD (test) & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Phân tích định tính dự kiến: Mô hình 1 cho recall khá nhưng dễ báo động giả với các hoạt động ``nằm xuống nhanh''; đây là động lực để so sánh với hai mô hình học chuỗi thời gian ở cuối kỳ.
+
+\section{Sản phẩm ứng dụng (Web Demo)}
+Theo định hướng ứng dụng, nhóm xây dựng một ứng dụng \textbf{Web Demo} (Streamlit) cho người dùng không chuyên: tải video hoặc dùng webcam, chọn mô hình (M1/M2/M3) và thanh trượt độ nhạy, hiển thị khung bao + ID theo thời gian, và cảnh báo đỏ ``CẢNH BÁO TÉ NGÃ!'' kèm xuất log sự cố (\texttt{.csv}/\texttt{.json}) và kết quả theo vết chuẩn MOT (\texttt{.txt}). Khung ứng dụng đã được dựng; phần suy luận với M1 chạy được ngay, M2/M3 sẽ tích hợp sau khi huấn luyện ở cuối kỳ.
+
+% ==============================================================================
+% CHƯƠNG 5
+% ==============================================================================
+\chapter{Kế hoạch cuối kỳ và Đối chiếu yêu cầu}
+\label{chap:plan}
+
+\section{Kế hoạch cuối kỳ}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Huấn luyện đầy đủ Mô hình 2 và Mô hình 3; tinh chỉnh ngưỡng Mô hình 1 trên tập val.
+    \item Chạy các thí nghiệm: TN1 (YOLO11n vs YOLO11s --- mAP, FPS); TN2 (so sánh M1/M2/M3 within + cross-dataset); TN3 (ảnh hưởng góc camera); TN4 tùy chọn (độ bền ánh sáng yếu).
+    \item Phân tích lỗi (các tình huống dễ nhầm), hoàn thiện Web Demo và kiểm thử với người dùng ngoài ngành; viết báo cáo cuối kỳ 5 chương.
+\end{itemize}
+
+\section{Đối chiếu yêu cầu đề cương}
+\begin{table}[H]
+\centering
+\caption{Đối chiếu yêu cầu của đề cương với cách đáp ứng ở giữa kỳ}
+\label{tab:req}
+\small
+\begin{tabularx}{\linewidth}{@{}p{6.2cm}X@{}}
+\toprule
+\textbf{Yêu cầu} & \textbf{Cách đáp ứng (GK)} \\
+\midrule
+Quy trình dự án AI đầy đủ & Chương 1--4 bám sát các bước xác định vấn đề $\rightarrow$ dữ liệu $\rightarrow$ xử lý $\rightarrow$ mô hình $\rightarrow$ đánh giá \\
+Tiền xử lý, trích đặc trưng, giảm chiều, trực quan hóa & Mục~\ref{sec:feature} + 5 biểu đồ EDA gồm PCA/t-SNE \\
+$\ge 3$ phương pháp cho bài toán chính & Ba mô hình M1/M2/M3 (Chương~3) \\
+Thống kê sơ bộ dữ liệu (GK) & EDA đầy đủ (Chương~2) \\
+GK: lý thuyết các mô hình + thực nghiệm $\ge 1$ mô hình & Lý thuyết cả ba + thực nghiệm M1 (Chương~3--4) \\
+Định hướng ứng dụng: sản phẩm có giao diện cho người không chuyên & Web Demo Streamlit (Mục~4.3) \\
+Mã nguồn chạy lại được & Kho GitHub công khai + notebook Kaggle + seed cố định \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ==============================================================================
+% TÀI LIỆU THAM KHẢO
+% ==============================================================================
+\backmatter
+\begin{thebibliography}{9}
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+
+\bibitem{yolo} Glenn Jocher et al., \textit{Ultralytics YOLO11}, Ultralytics, 2024. \url{https://docs.ultralytics.com}
+
+\bibitem{bytetrack} Yifu Zhang et al., \textit{ByteTrack: Multi-Object Tracking by Associating Every Detection Box}, ECCV, 2022.
+
+\bibitem{urfd} Bogdan Kwolek, Michal Kepski, \textit{Human fall detection on embedded platform using depth maps and wireless accelerometer}, Computer Methods and Programs in Biomedicine, 2014. UR Fall Detection Dataset. \url{https://fenix.ur.edu.pl/~mkepski/ds/uf.html}
+
+\bibitem{le2i} Imen Charfi et al., \textit{Optimized spatio-temporal descriptors for real-time fall detection}, Le2i Fall Detection Dataset, Université de Bourgogne (IMVIA).
+
+\bibitem{lstm} Sepp Hochreiter, Jürgen Schmidhuber, \textit{Long Short-Term Memory}, Neural Computation, 1997.
+
+\bibitem{tsne} Laurens van der Maaten, Geoffrey Hinton, \textit{Visualizing Data using t-SNE}, Journal of Machine Learning Research, 2008.
+
+\end{thebibliography}
+
+\end{document}
