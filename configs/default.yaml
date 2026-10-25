@@ -1,0 +1,43 @@
+# Cấu hình tập trung cho toàn pipeline Fall Detection — Nhóm 05
+seed: 42
+
+paths:
+  # Trên Kaggle: /kaggle/input/<dataset-slug>/...
+  urfd_root: "data/urfd"
+  le2i_root: "data/le2i"
+  work_dir: "outputs"      # /kaggle/working khi chạy Kaggle
+  splits_dir: "splits"
+
+data:
+  fps_sample: 5            # lấy mẫu frame để giảm trùng lặp
+  img_size: 224
+  seq_len: 16             # số frame/chuỗi cho M2, M3
+  split_ratio: [0.70, 0.15, 0.15]   # train/val/test theo VIDEO
+  split_by: "video"       # không bao giờ "frame"
+
+detection:
+  model: "yolo11n.pt"      # TN1 so sánh với yolo11s.pt
+  conf: 0.25
+  person_class: 0
+
+tracking:
+  type: "bytetrack"
+  track_thresh: 0.5
+  match_thresh: 0.8
+
+evaluate:
+  tolerance_sec: 1.0       # cửa sổ dung sai ±T cho sự kiện té ngã (ablation: 0.5/1.0/2.0)
+
+model2_pose_lstm:
+  hidden: 128
+  layers: 1
+  dropout: 0.3
+  lr: 0.001
+  epochs: 40
+
+model3_cnn_gru:
+  backbone: "mobilenet_v2" # đóng băng
+  hidden: 128
+  dropout: 0.4
+  lr: 0.001
+  epochs: 30

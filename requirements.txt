@@ -1,0 +1,24 @@
+# Core
+numpy>=1.24
+pandas>=2.0
+opencv-python>=4.8
+Pillow>=10.0
+pyyaml>=6.0
+tqdm>=4.65
+
+# ML / DL
+scikit-learn>=1.3        # PCA, t-SNE, metrics
+torch>=2.1               # có sẵn trên Kaggle
+ultralytics>=8.3         # YOLO11 (detection + pose)
+
+# Tracking & eval
+lap>=0.4                 # Hungarian cho ByteTrack
+# TrackEval: cài từ github khi cần IDF1/MOTA (tùy chọn)
+
+# Visualization
+matplotlib>=3.7
+seaborn>=0.12
+
+# Demo
+streamlit>=1.30
+# gradio>=4.0            # thay thế nếu muốn

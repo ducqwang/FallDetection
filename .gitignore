@@ -1,0 +1,33 @@
+# Data & media (KHÔNG commit dữ liệu/video người thật)
+data/
+datasets/
+*.mp4
+*.avi
+*.mov
+*.png
+*.jpg
+!docs/**/*.png
+
+# Model weights & outputs
+*.pt
+*.pth
+*.onnx
+runs/
+outputs/
+checkpoints/
+logs/
+splits/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
