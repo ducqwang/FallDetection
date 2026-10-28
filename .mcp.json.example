@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_API_KEY"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "human-mcp": {
+      "command": "npx",
+      "args": ["@goonnguyen/human-mcp"],
+      "env": {
+        "GOOGLE_GEMINI_API_KEY": "your_gemini_api_key_here"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
+    },
+    "stitch": {
+      "command": "npx",
+      "args": ["@_davideast/stitch-mcp", "proxy"],
+      "env": {
+        "STITCH_API_KEY": "YOUR_STITCH_API_KEY"
+      }
+    },
+    "kaggle": {
+      "_comment": "Chạy/đọc kết quả notebook Kaggle (kernel push/status/output). Yêu cầu Python>=3.12 nên chạy qua uvx (cài uv: pip install uv). uvx tự tải Python 3.12 + gói. QUAN TRỌNG: phải ghim 'mcp<2' vì kaggle-mcp-server dùng FastMCP (mcp 1.x), mcp 2.x sẽ crash. Token: Kaggle > Settings > API > Create New Token.",
+      "command": "uvx",
+      "args": ["--python", "3.12", "--with", "mcp<2", "kaggle-mcp-server"],
+      "env": {
+        "KAGGLE_API_TOKEN": "KGAT_xxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
