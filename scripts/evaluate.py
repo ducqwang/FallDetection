@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -60,6 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--splits", help="splits.json (mặc định: cạnh metadata.csv)")
     parser.add_argument("--frame-labels", help="urfd_frame_labels.csv (mặc định: annotations/ cạnh metadata.csv)")
     parser.add_argument("--thr", type=float, default=DEFAULT_THR, help="ngưỡng fall_score")
+    parser.add_argument("--tuned", help="yaml của tune_m1: lấy thr từ đây, bỏ qua --thr")
     parser.add_argument("--T", type=float, nargs="+", default=[1.0], help="dung sai T (giây), nhiều giá trị được")
     parser.add_argument("--merge-gap", type=float, default=DEFAULT_MERGE_GAP_S, help="merge_gap (giây)")
     parser.add_argument("--out-dir", default="reports/results", help="thư mục lưu JSON")
@@ -77,8 +79,9 @@ def main() -> None:
                            args.dataset, args.split)
     labels_path = Path(args.frame_labels) if args.frame_labels else meta_path.parent / "annotations" / "urfd_frame_labels.csv"
     frame_labels = pd.read_csv(labels_path) if args.dataset == "urfd" and labels_path.exists() else None
+    thr = yaml.safe_load(Path(args.tuned).read_text(encoding="utf-8"))["alarm"]["thr"] if args.tuned else args.thr
     in_scope = predictions[predictions["video_id"].isin(videos["video_id"])]
-    results = [evaluate(in_scope, videos, args.thr, tolerance, args.merge_gap, frame_labels) for tolerance in args.T]
+    results = [evaluate(in_scope, videos, thr, tolerance, args.merge_gap, frame_labels) for tolerance in args.T]
     print_table(results)
     tag = args.tag or Path(args.pred).stem
     out_path = Path(args.out_dir) / f"{tag}_{args.dataset}_{args.split}.json"
