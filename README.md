@@ -45,7 +45,7 @@ Chạy trên Kaggle theo đúng thứ tự. Chi tiết và trạng thái ở [`d
 | Bước | Notebook | Input | Máy | Đầu ra |
 |---|---|---|---|---|
 | 1 | `notebooks/00_prepare_data.ipynb` | URFD ảnh, URFD nhãn, Le2i | Internet | Kaggle Dataset `nhom05-falldet-processed` |
-| 2 | `notebooks/01_eda.ipynb` | `nhom05-falldet-processed` | Internet | `reports/figures/` |
+| 2 | `notebooks/tv1_01_eda.ipynb` | `nhom05-falldet-processed` | Internet | `reports/figures/` |
 | 3 | `notebooks/02_m1_baseline.ipynb` | `nhom05-falldet-processed` | GPU, Internet | `reports/results/` |
 
 Lệnh tương ứng:

@@ -43,7 +43,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 32bf07b  |  Cập nhật: 2026-11-
 | `scripts/make_tracks_tmp.py` | TẠM THỜI: YOLO11 + ByteTrack | `--meta --out --dataset --model --conf --imgsz` | mp4 | `tracks.parquet` |
 | `scripts/summarize_results.py` | Gom bảng kết quả | `--results-dir --out` | JSON | csv |
 | `tests/` | Test TV1, `fake_kaggle.py` sinh dữ liệu giả | `python -m pytest tests -q` | | |
-| `notebooks/00_prepare_data`, `01_eda`, `02_m1_baseline` | Chạy trên Kaggle | | | |
+| `notebooks/00_prepare_data`, `tv1_01_eda`, `02_m1_baseline` | Chạy trên Kaggle | | | |
 | `docs/SCHEMA.md`, `docs/EVAL_PROTOCOL.md` | Định dạng file, giao thức đánh giá | | | |
 
 ## Cách chạy (lệnh y nguyên, theo thứ tự, trên Kaggle)
@@ -54,7 +54,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 32bf07b  |  Cập nhật: 2026-11-
    python -m src.data.split --meta /kaggle/working/nhom05-falldet-processed/metadata.csv --out /kaggle/working/nhom05-falldet-processed/splits.json --seed 42
    ```
 3. Tạo Kaggle Dataset `nhom05-falldet-processed` từ thư mục trên.
-4. `notebooks/01_eda.ipynb`: Add Input dataset vừa tạo, bật Internet, không cần GPU, Run All.
+4. `notebooks/tv1_01_eda.ipynb`: Add Input dataset vừa tạo, bật Internet, không cần GPU, Run All.
 5. `notebooks/02_m1_baseline.ipynb`: Add Input dataset vừa tạo, bật GPU và Internet, Run All.
 6. Tải về và commit lên nhánh: `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `dataset_index/`; `reports/figures/*.png`; `reports/results/*`. Không dùng thư mục `data/` vì đã bị `.gitignore` chặn.
 7. Mở Pull Request vào `main` theo checklist mục 7 của prompt.
@@ -62,7 +62,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 32bf07b  |  Cập nhật: 2026-11-
 | Bước | Internet | GPU | Thời gian (ước tính, chưa đo) | Ghi ra /kaggle/working (ước tính, chưa đo) |
 |---|---|---|---|---|
 | 00_prepare_data | có | không | 15–30 phút | 1–3 GB |
-| 01_eda | có | không | 5–10 phút | dưới 50 MB |
+| tv1_01_eda | có | không | 5–10 phút | dưới 50 MB |
 | 02_m1_baseline | có | có | 30–60 phút | dưới 200 MB |
 
 ## Số liệu thật đã kiểm tra
@@ -81,7 +81,7 @@ Test: `python -m pytest tests -q`: 95 pass, 0 fail (phần lớn dữ liệu gi�
 - Tạo HANDOFF từ Việc 1 và cập nhật sau mỗi Việc → chỉ tạo sau khi xong code → agent làm thiếu, TV1 phát hiện.
 - Chỉ sửa file của mình → đã sửa `.gitignore` chung → dòng `data/` chặn cả `src/data/`, phải thêm `!src/data/`, `!reports/figures/*.png`, `*.parquet`.
 - `requirements.txt` chốt cứng → đã làm, nhưng notebook Kaggle chỉ cài `ultralytics` và `lap` → cài cả file sẽ thay torch có sẵn của Kaggle.
-- Đặt `notebooks/01_eda.ipynb` → file này đã có sẵn của TV3 và đã được thay bằng notebook mới theo đúng tên prompt yêu cầu; bản cũ còn trong lịch sử git.
+- Đặt EDA ở `notebooks/01_eda.ipynb` → đặt ở `notebooks/tv1_01_eda.ipynb` → `01_eda.ipynb` là file có sẵn của TV3, đã khôi phục nguyên bản từ `main`.
 - Việc 0 không sửa logic → giữ nguyên source, chỉ xóa output → notebook Le2i nặng 6 MB do ảnh ghép của người thật.
 - FAR = FP / tổng giờ video → giữ đúng, thêm `far_nonfall_per_hour` → mục 2.2 nói FAR tính trên đoạn không-ngã, có thể hiểu theo cả hai cách.
 - Thêm ngoài danh sách: `--split all`, `--tuned`, `--T` nhiều giá trị, `scripts/summarize_results.py`, tách `src/data/{common,media,urfd,le2i,metadata,checks,data_card,env_info}.py`, `src/models/m1_features.py`, `src/eval/frame_metrics.py` → để giữ mỗi file dưới 250 dòng và chạy cross-dataset.
@@ -112,7 +112,6 @@ Rủi ro đã biết:
 - Toàn bộ pipeline chưa chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch.
 - Ngưỡng mặc định trong `configs/m1.yaml` là giá trị khởi đầu, chưa kiểm chứng trên dữ liệu thật. Chất lượng M1 chưa đo.
 - Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp; nếu gặp, assert dừng kèm tên video.
-- `window_label` với cửa sổ dài hơn 14 frame không bao giờ dương ở khoảng ngã Le2i ngắn nhất (7 frame).
 - M1 khó thấy người ngã thẳng về phía camera vì w/h ít đổi.
 - Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
 - Thay đổi chưa commit ở `src/trainer.py` (chỉ khoảng trắng) không phải của nhánh này, được để nguyên.
