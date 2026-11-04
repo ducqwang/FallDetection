@@ -1,0 +1,35 @@
+# Mô hình M1 rule-based. Mọi ngưỡng nằm ở đây, code không chứa số "ma thuật".
+# Tham số thời gian đặt theo GIÂY, code đổi sang frame bằng fps của từng video.
+# Vận tốc đo bằng "chiều cao người/giây", gia tốc bằng "chiều cao người/giây²".
+signals:
+  smooth_s: 0.2         # cửa sổ trung bình trượt
+  reference_s: 1.5      # chiều cao chuẩn = chiều cao lớn nhất trong khoảng này trở về trước
+rules:
+  window_s: 1.0         # N: khoảng tìm đổi tư thế và vận tốc đột ngột
+  ar_upright: 0.8       # w/h từ mức này trở xuống là đứng
+  ar_lying: 1.2         # w/h từ mức này trở lên là nằm
+  vy_min: 0.2           # vận tốc dọc: dưới mức này điểm bằng 0
+  vy_full: 0.8          # vận tốc dọc: từ mức này điểm bằng 1
+  ay_min: 0.5           # gia tốc dọc: dưới mức này điểm bằng 0
+  ay_full: 3.0          # gia tốc dọc: từ mức này điểm bằng 1
+  immobile_s: 0.5       # bất động sau ngã phải NGẮN: 8/30 Fall URFD chỉ còn dưới 0.5 s sau khi nằm
+  still_speed: 0.15     # tốc độ tâm dưới mức này là ít chuyển động
+  min_track_s: 0.5      # track ngắn hơn thì điểm bằng 0
+# Tổng trọng số phải bằng 1. Bất động chỉ là thành phần cộng điểm, không bắt buộc:
+# posture + speed = 0.75 vẫn vượt thr mặc định, posture + still = 0.6 thì không.
+weights:
+  speed: 0.30
+  accel: 0.10
+  posture: 0.45
+  still: 0.15
+alarm:
+  thr: 0.7
+  merge_gap_s: 1.0
+  tolerance_s: 1.0
+# Lưới tìm kiếm cho scripts/tune_m1.py, chỉ chạy trên tập val.
+grid:
+  thr: [0.4, 0.5, 0.6, 0.7, 0.8]
+  ar_upright: [0.7, 0.8, 1.0]
+  ar_lying: [1.0, 1.2, 1.5]
+  vy_full: [0.5, 0.8, 1.2]
+  window_s: [0.75, 1.0, 1.5]
