@@ -15,10 +15,11 @@ import pandas as pd
 def window_label(video_row: Mapping, start_frame: int, end_frame: int, min_overlap: float = 0.5) -> int:
     """Nhãn của cửa sổ [start_frame, end_frame] (frame 0-based, tính cả hai đầu).
 
-    Trả về 1 nếu phần chồng lên [fall_start, fall_end] ≥ min_overlap × độ dài cửa sổ.
+    Trả về 1 nếu số frame chồng lên sự kiện [fall_start, fall_end] (tính cả hai đầu)
+    ≥ min_overlap × min(độ dài cửa sổ, độ dài sự kiện).
+    Dùng min vì cú ngã có thể ngắn hơn cửa sổ nhiều: chia theo độ dài cửa sổ thì cửa sổ dài hơn
+    2 lần cú ngã không bao giờ dương, dù đã bao trọn cú ngã (Le2i có cú ngã chỉ 7 frame).
     Video ADL luôn trả về 0, kể cả ADL có nhãn frame 0/1. Video chưa xác định lớp thì raise.
-    Lưu ý: khoảng ngã Le2i ngắn nhất 7 frame, nên cửa sổ dài hơn 14 frame sẽ không đạt
-    min_overlap = 0.5 ở những video đó.
     """
     if end_frame < start_frame:
         raise ValueError(f"Cửa sổ không hợp lệ: [{start_frame}, {end_frame}]")
@@ -29,7 +30,8 @@ def window_label(video_row: Mapping, start_frame: int, end_frame: int, min_overl
     fall_start, fall_end = int(video_row["fall_start_frame"]), int(video_row["fall_end_frame"])
     overlap = min(end_frame, fall_end) - max(start_frame, fall_start) + 1
     window_length = end_frame - start_frame + 1
-    return int(overlap > 0 and overlap >= min_overlap * window_length)
+    event_length = fall_end - fall_start + 1
+    return int(overlap > 0 and overlap >= min_overlap * min(window_length, event_length))
 
 
 def bbox_iou(boxes_a: np.ndarray, boxes_b: np.ndarray) -> np.ndarray:

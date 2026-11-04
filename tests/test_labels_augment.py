@@ -21,6 +21,37 @@ def test_window_label_overlap_boundary():
     assert window_label(FALL, 0, 50) == 0
 
 
+SHORT_FALL = {"video_id": "s", "label": "fall", "fall_start_frame": 100, "fall_end_frame": 106}  # 7 frame
+LONG_FALL = {"video_id": "l", "label": "fall", "fall_start_frame": 100, "fall_end_frame": 129}  # 30 frame
+
+
+def test_long_window_covering_short_event_is_positive():
+    assert window_label(SHORT_FALL, 80, 127) == 1  # cửa sổ 48 frame bao trọn sự kiện 7 frame
+
+
+def test_window_not_touching_event_is_negative():
+    assert window_label(SHORT_FALL, 107, 154) == 0
+    assert window_label(LONG_FALL, 40, 99) == 0
+
+
+def test_window_inside_long_event_is_positive():
+    assert window_label(LONG_FALL, 105, 120) == 1
+
+
+def test_window_touching_one_frame_of_long_event_is_negative():
+    assert window_label(LONG_FALL, 85, 100) == 0  # cửa sổ 16 frame chỉ chạm frame 100
+
+
+def test_overlap_uses_shorter_of_window_and_event():
+    assert window_label(SHORT_FALL, 103, 150) == 1  # chồng 4 ≥ 0.5 × 7
+    assert window_label(SHORT_FALL, 104, 151) == 0  # chồng 3 < 0.5 × 7
+
+
+def test_window_label_rejects_reversed_window():
+    with pytest.raises(ValueError):
+        window_label(SHORT_FALL, 10, 9)
+
+
 def test_window_label_adl_always_zero():
     assert window_label(ADL, 0, 1000) == 0
 

@@ -50,6 +50,12 @@ Một dòng mỗi video: 70 dòng URFD, 130 dòng Le2i (chỉ Home và Coffee ro
 
 `label` ∈ {-1, 0, 1}: chưa nằm, đang ngã, đã nằm. Chỉ gồm frame CÓ trong CSV gốc; frame thiếu là chưa có nhãn, không phải -1. Nhãn 1 của ADL không tạo sự kiện ngã.
 
+## Gán nhãn cửa sổ
+
+`src.data.labels.window_label(video_row, start_frame, end_frame, min_overlap=0.5)`, frame 0-based, tính cả hai đầu cửa sổ.
+
+Cửa sổ là dương khi số frame chồng lên sự kiện `[fall_start_frame, fall_end_frame]` lớn hơn hoặc bằng `min_overlap × min(độ dài cửa sổ, độ dài sự kiện)` và lớn hơn 0. Dùng `min` vì cú ngã có thể ngắn hơn cửa sổ nhiều (Le2i ngắn nhất 7 frame). Video ADL luôn trả về 0; video chưa xác định lớp thì báo lỗi.
+
 ## splits.json
 
 ```json
