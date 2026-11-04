@@ -1,5 +1,5 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: db62872  |  Cập nhật: 2026-11-04
+Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d5248c2  |  Cập nhật: 2026-11-04 23:58
 
 > Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Mọi output cần dataset được liệt kê ở mục "Việc còn tồn đọng".
 
