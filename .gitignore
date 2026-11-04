@@ -1,5 +1,7 @@
 # Data & media (KHÔNG commit dữ liệu/video người thật)
 data/
+# 'data/' ở trên khớp mọi thư mục tên data, nên phải mở lại mã nguồn src/data/
+!src/data/
 datasets/
 *.mp4
 *.avi
@@ -7,11 +9,14 @@ datasets/
 *.png
 *.jpg
 !docs/**/*.png
+# Hình báo cáo (EDA, minh họa augmentation) được commit
+!reports/figures/*.png
 
 # Model weights & outputs
 *.pt
 *.pth
 *.onnx
+*.parquet
 runs/
 outputs/
 checkpoints/
