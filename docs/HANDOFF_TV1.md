@@ -1,5 +1,5 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: __HASH__  |  Cập nhật: 2026-11-04
+Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: db62872  |  Cập nhật: 2026-11-04
 
 > Chưa có lần nào chạy trên Kaggle. "CSV thật" nghĩa là 2 file nhãn URFD thật, còn ảnh và video vẫn là giả.
 
