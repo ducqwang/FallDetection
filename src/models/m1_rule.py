@@ -46,6 +46,8 @@ def ramp(values: pd.Series, low: float, high: float) -> pd.Series:
 def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict) -> pd.Series:
     """Tính fall_score theo frame cho 1 track; mọi điều kiện chỉ nhìn về quá khứ.
 
+    Index là frame_idx 0-based; fps: frame/giây; mọi tham số *_s trong rules tính bằng giây.
+
     speed: vận tốc dọc lớn nhất trong window_s giây gần nhất.
     accel: gia tốc dọc lớn nhất trong cùng khoảng.
     posture: đang nằm VÀ trong window_s giây gần nhất đã từng đứng.
@@ -65,7 +67,7 @@ def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict)
 
 
 def gt_boxes_as_tracks(gt_boxes: pd.DataFrame) -> pd.DataFrame:
-    """Đổi Le2i GT bbox thành tracks đúng schema: mỗi video 1 track, det_conf = 1."""
+    """Đổi Le2i GT bbox (frame_idx 0-based, pixel) thành tracks đúng schema: mỗi video 1 track, det_conf = 1."""
     return gt_boxes.assign(track_id=GT_TRACK_ID, det_conf=GT_DET_CONF)[TRACK_COLUMNS]
 
 
@@ -88,7 +90,7 @@ def signals_by_track(tracks: pd.DataFrame, meta: pd.DataFrame, config: dict) -> 
 
 
 def predictions_from_signals(items: list[dict], rules: dict, weights: dict) -> pd.DataFrame:
-    """Chấm điểm các track đã tính tín hiệu, trả về bảng đúng schema predictions.csv."""
+    """Chấm điểm các track đã tính tín hiệu, trả về bảng predictions.csv (frame_idx 0-based, fall_score ∈ [0, 1])."""
     tables = []
     for item in items:
         signals = item["signals"]
@@ -102,11 +104,12 @@ def predictions_from_signals(items: list[dict], rules: dict, weights: dict) -> p
 
 
 def predict(tracks: pd.DataFrame, meta: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Chạy M1 trên toàn bộ tracks. Trả về bảng predictions."""
+    """Chạy M1 trên toàn bộ tracks (frame_idx 0-based). Trả về bảng predictions."""
     return predictions_from_signals(signals_by_track(tracks, meta, config), config["rules"], config["weights"])
 
 
 def main() -> None:
+    """Đọc tracks hoặc GT bbox, chấm điểm và ghi predictions.csv."""
     parser = argparse.ArgumentParser(description="Chạy M1 rule-based, xuất predictions.csv.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--tracks", help="tracks.parquet theo schema")

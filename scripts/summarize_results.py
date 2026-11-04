@@ -31,6 +31,7 @@ def result_rows(path: Path) -> list[dict]:
 
 
 def main() -> None:
+    """Đọc mọi JSON trong thư mục kết quả và ghi bảng CSV."""
     parser = argparse.ArgumentParser(description="Gom JSON đánh giá thành bảng CSV.")
     parser.add_argument("--results-dir", default="reports/results", help="thư mục chứa JSON")
     parser.add_argument("--out", required=True, help="file CSV sẽ ghi")

@@ -53,6 +53,7 @@ def print_table(results: list[dict]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Khai báo tham số dòng lệnh."""
     parser = argparse.ArgumentParser(description="Đánh giá mức sự kiện và mức frame.")
     parser.add_argument("--pred", required=True, help="predictions.csv")
     parser.add_argument("--meta", required=True, help="metadata.csv")
@@ -70,6 +71,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Đọc dữ liệu, đánh giá theo từng T, in bảng và lưu JSON."""
     args = parse_args()
     meta_path = Path(args.meta)
     meta = pd.read_csv(meta_path, dtype=METADATA_DTYPES)

@@ -11,7 +11,7 @@ from sklearn.metrics import accuracy_score, average_precision_score, roc_auc_sco
 
 
 def frame_truth(n_frames: int, fall_interval: tuple[int, int] | None) -> np.ndarray:
-    """Mảng nhãn 0/1 độ dài n_frames; fall_interval tính cả hai đầu, None với ADL."""
+    """Mảng nhãn 0/1 độ dài n_frames; fall_interval là (đầu, cuối) theo frame 0-based, tính cả hai đầu, None với ADL."""
     truth = np.zeros(n_frames, dtype=int)
     if fall_interval is not None:
         truth[fall_interval[0]:fall_interval[1] + 1] = 1
@@ -21,7 +21,7 @@ def frame_truth(n_frames: int, fall_interval: tuple[int, int] | None) -> np.ndar
 def frame_level_metrics(records: list[dict], thr: float) -> dict:
     """Tính độ đo trên mọi frame được giữ lại.
 
-    records: list dict gồm scores, truth (ndarray cùng độ dài) và mask (True = dùng frame này).
+    records: list dict gồm scores, truth (ndarray theo frame, 0-based) và mask (True = dùng frame này).
     Mask dùng để bỏ frame NaN của ADL khi đánh giá theo nhãn frame.
     """
     scores = np.concatenate([item["scores"][item["mask"]] for item in records])

@@ -89,6 +89,7 @@ def make_splits(meta: pd.DataFrame, seed: int = 42, ratio: tuple[float, float, f
 
 
 def main() -> None:
+    """Đọc metadata, chia tập, ghi splits.json và in số video từng tập."""
     parser = argparse.ArgumentParser(description="Chia tập theo video, phân tầng, chống rò rỉ.")
     parser.add_argument("--meta", required=True, help="đường dẫn metadata.csv")
     parser.add_argument("--out", required=True, help="đường dẫn splits.json sẽ ghi")

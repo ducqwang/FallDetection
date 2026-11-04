@@ -27,7 +27,10 @@ def window_vector(signals: pd.DataFrame, still_speed: float) -> np.ndarray:
 
 def video_windows(track: pd.DataFrame, row: pd.Series, window_s: float, stride_s: float,
                   signal_params: dict, still_speed: float) -> tuple[list[np.ndarray], list[int]]:
-    """Cắt 1 track thành các cửa sổ (đổi giây sang frame bằng fps của video), gán nhãn window_label."""
+    """Cắt 1 track thành các cửa sổ, gán nhãn window_label.
+
+    window_s, stride_s tính bằng giây, đổi sang frame bằng fps của video; frame_idx 0-based.
+    """
     fps = float(row["fps"])
     window, stride = seconds_to_frames(window_s, fps), seconds_to_frames(stride_s, fps)
     signals = track_signals(track, fps, signal_params["smooth_s"], signal_params["reference_s"])
@@ -44,7 +47,8 @@ def build_window_features(boxes: pd.DataFrame, meta: pd.DataFrame, window_s: flo
                           gt_boxes: pd.DataFrame | None = None) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Ghép đặc trưng mọi video has_event_label = 1 có bbox.
 
-    boxes cần cột video_id, frame_idx, x1, y1, x2, y2; có track_id thì chọn track chính.
+    boxes cần cột video_id, frame_idx (0-based), x1, y1, x2, y2 (pixel); có track_id thì chọn track chính.
+    window_s, stride_s tính bằng giây; still_speed tính bằng chiều cao người/giây.
     gt_boxes dùng để chọn track chính của Le2i khi boxes là tracks cache.
     """
     usable = meta[meta["has_event_label"] == 1].set_index("video_id", drop=False)

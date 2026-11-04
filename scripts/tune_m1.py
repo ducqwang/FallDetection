@@ -51,6 +51,7 @@ def best_row(table: pd.DataFrame) -> pd.Series:
 
 
 def parse_args() -> argparse.Namespace:
+    """Khai báo tham số dòng lệnh."""
     parser = argparse.ArgumentParser(description="Tune ngưỡng M1 chỉ trên tập val.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--tracks", help="tracks.parquet")
@@ -64,6 +65,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Tune trên val của 1 bộ dữ liệu, ghi yaml ngưỡng tốt nhất và csv toàn lưới."""
     args = parse_args()
     config = m1_rule.load_config(args.config)
     meta_path = Path(args.meta)

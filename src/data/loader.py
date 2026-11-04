@@ -83,7 +83,7 @@ def read_frames(video_id: str, start: int | None = None, end: int | None = None,
 
 
 def load_tracks(path: str | Path) -> pd.DataFrame:
-    """Đọc tracks.parquet và kiểm tra đủ cột theo schema."""
+    """Đọc tracks.parquet (frame_idx 0-based, bbox pixel) và kiểm tra đủ cột theo schema."""
     tracks = pd.read_parquet(path)
     missing = sorted(set(TRACK_COLUMNS) - set(tracks.columns))
     if missing:

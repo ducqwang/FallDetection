@@ -44,6 +44,7 @@ def track_video(model, video_path: Path, video_id: str, conf: float, imgsz: int)
 
 
 def main() -> None:
+    """Chạy tracking trên các video đã chọn và ghi tracks.parquet."""
     parser = argparse.ArgumentParser(description="TẠM THỜI: sinh tracks.parquet bằng YOLO11 + ByteTrack.")
     parser.add_argument("--meta", required=True, help="metadata.csv")
     parser.add_argument("--out", required=True, help="tracks.parquet sẽ ghi")

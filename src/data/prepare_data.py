@@ -121,6 +121,7 @@ def write_outputs(meta: pd.DataFrame, labels: pd.DataFrame, boxes: pd.DataFrame,
 
 
 def parse_args() -> argparse.Namespace:
+    """Khai báo tham số dòng lệnh."""
     parser = argparse.ArgumentParser(description="Chuẩn hóa URFD và Le2i (Home + Coffee room).")
     parser.add_argument("--config", default="configs/data.yaml", help="file cấu hình dữ liệu")
     parser.add_argument("--input-root", help="ghi đè paths.input_root")
@@ -131,6 +132,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Quét, kiểm tra, chuyển video rồi ghi toàn bộ đầu ra."""
     args = parse_args()
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     paths = {**cfg["paths"], **({"input_root": args.input_root} if args.input_root else {})}

@@ -65,7 +65,7 @@ def count_frames(path: Path) -> int:
 
 
 def png_sequence_to_mp4(frames: list[Path], out_path: Path, fps: int) -> None:
-    """Ghép PNG theo đúng thứ tự danh sách `frames` thành mp4.
+    """Ghép PNG theo đúng thứ tự danh sách `frames` thành mp4; fps là frame/giây.
 
     Tạo symlink đánh số liên tục trong thư mục tạm để ffmpeg đọc đúng thứ tự,
     không phụ thuộc cách đệm số 0 trong tên file gốc.

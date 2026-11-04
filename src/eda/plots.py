@@ -84,7 +84,7 @@ def plot_clip_counts(meta: pd.DataFrame, out_path: Path) -> Path:
 
 
 def plot_duration(meta: pd.DataFrame, out_path: Path) -> Path:
-    """Biểu đồ 2: phân bố độ dài clip (giây) theo lớp, mỗi nguồn một ô vì thang thời gian khác nhau."""
+    """Biểu đồ 2: phân bố duration_s (giây) theo lớp, mỗi nguồn một ô vì thang thời gian khác nhau."""
     data = _labeled(meta)
     figure, axes = plt.subplots(1, 2, figsize=(9, 3.8))
     for axis, dataset in zip(axes, DATASET_NAMES):
@@ -102,7 +102,7 @@ def plot_duration(meta: pd.DataFrame, out_path: Path) -> Path:
 
 
 def fall_frame_counts(meta: pd.DataFrame) -> pd.DataFrame:
-    """Đếm frame té ngã (trong [fall_start, fall_end], tính cả hai đầu) và bình thường theo nguồn."""
+    """Đếm frame té ngã (trong [fall_start, fall_end], 0-based, tính cả hai đầu) và bình thường theo nguồn."""
     data = _labeled(meta).copy()
     data["fall_frames"] = (data["fall_end_frame"] - data["fall_start_frame"] + 1).fillna(0).astype(int)
     table = data.groupby("dataset").agg(fall=("fall_frames", "sum"), total=("n_frames", "sum"))
@@ -186,6 +186,7 @@ def plot_embedding(X: np.ndarray, y: np.ndarray, feature_source: str, out_path: 
 
 
 def main() -> None:
+    """Vẽ 5 biểu đồ từ metadata và nguồn bbox."""
     parser = argparse.ArgumentParser(description="Vẽ 5 biểu đồ EDA.")
     parser.add_argument("--meta", required=True, help="metadata.csv")
     parser.add_argument("--out-dir", default="reports/figures", help="thư mục lưu PNG")

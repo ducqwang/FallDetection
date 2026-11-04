@@ -21,7 +21,7 @@ TIME_EPS = 1e-9  # chống sai số làm tròn khi cảnh báo rơi đúng mép 
 
 
 def check_predictions(predictions: pd.DataFrame, meta: pd.DataFrame) -> None:
-    """Raise nếu predictions sai schema, điểm ngoài [0, 1] hoặc frame ngoài video."""
+    """Raise nếu predictions sai schema, điểm ngoài [0, 1] hoặc frame_idx (0-based) ngoài video."""
     missing = sorted(set(PREDICTION_COLUMNS) - set(predictions.columns))
     if missing:
         raise ValueError(f"predictions thiếu cột {missing}")
@@ -38,7 +38,10 @@ def check_predictions(predictions: pd.DataFrame, meta: pd.DataFrame) -> None:
 
 
 def max_score_per_frame(video_predictions: pd.DataFrame, n_frames: int) -> np.ndarray:
-    """Điểm lớn nhất trên mọi track tại mỗi frame; frame không có track được điểm 0."""
+    """Điểm lớn nhất trên mọi track tại mỗi frame; frame không có track được điểm 0.
+
+    Trả về ndarray độ dài n_frames, chỉ số là frame_idx 0-based.
+    """
     scores = np.zeros(n_frames, dtype=float)
     np.maximum.at(scores, video_predictions["frame_idx"].to_numpy(dtype=int),
                   video_predictions["fall_score"].to_numpy(dtype=float))
@@ -113,6 +116,8 @@ def _event_window_seconds(row: dict, tolerance_s: float) -> float:
 def summarize_events(rows: list[dict], tolerance_s: float) -> dict:
     """Gộp kết quả các video (micro): Precision, Recall, F1, FAR, latency.
 
+    tolerance_s tính bằng giây; rows là kết quả từng video (frame 0-based, duration_s bằng giây).
+
     Không có cảnh báo hoặc không có sự kiện thì độ đo tương ứng bằng 0.0.
     far_per_hour chia tổng giờ video; far_nonfall_per_hour chia giờ ngoài cửa sổ dung sai.
     """
@@ -134,7 +139,10 @@ def summarize_events(rows: list[dict], tolerance_s: float) -> dict:
 
 
 def summarize_negatives(rows: list[dict]) -> dict:
-    """Báo cáo trên video không có sự kiện (ví dụ ADL negative khó): chỉ có FP và FAR."""
+    """Báo cáo trên video không có sự kiện (ví dụ ADL negative khó): chỉ có FP và FAR.
+
+    total_hours tính bằng giờ, far_per_hour là số FP mỗi giờ.
+    """
     seconds = sum(row["duration_s"] for row in rows)
     fp = sum(row["fp"] for row in rows)
     return {"n_videos": len(rows), "n_videos_with_fp": sum(1 for row in rows if row["fp"] > 0), "fp": fp,
@@ -167,6 +175,7 @@ def evaluate(predictions: pd.DataFrame, meta_rows: pd.DataFrame, thr: float = DE
              frame_labels: pd.DataFrame | None = None) -> dict:
     """Đánh giá các video trong meta_rows; video không có dòng dự đoán tính là không cảnh báo.
 
+    thr ∈ [0, 1]; tolerance_s, merge_gap_s tính bằng giây; frame_idx 0-based.
     Video has_event_label = 0 không được đánh giá. Trả về dict: params, event, frame,
     hard_negative, per_video. frame_labels (urfd_frame_labels) bật lọc frame có nhãn ở ADL.
     """
