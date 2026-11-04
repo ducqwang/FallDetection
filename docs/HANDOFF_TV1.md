@@ -74,7 +74,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d5248c2  |  Cập nhật: 2026-11-
 
 - YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python -m pytest tests -q`: 96 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
+Test: `python -m pytest tests -q`: 95 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
 - Toàn bộ chạy trên Kaggle, có output thật → agent không chạy trên dataset → TV1 quyết định tự chạy sau.
