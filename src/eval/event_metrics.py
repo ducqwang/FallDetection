@@ -13,6 +13,7 @@ import pandas as pd
 from ..data.common import PREDICTION_COLUMNS
 from .frame_metrics import frame_level_metrics, frame_truth
 
+MAIN_FAR_KEY = "far_nonfall_per_hour"  # FAR báo cáo chính; far_per_hour chỉ là số phụ
 DEFAULT_THR = 0.5
 DEFAULT_MERGE_GAP_S = 1.0
 DEFAULT_TOLERANCE_S = 1.0
@@ -127,7 +128,7 @@ def summarize_events(rows: list[dict], tolerance_s: float) -> dict:
     tolerance_s tính bằng giây; rows là kết quả từng video (frame 0-based, duration_s bằng giây).
 
     Không có cảnh báo hoặc không có sự kiện thì độ đo tương ứng bằng 0.0.
-    far_per_hour chia tổng giờ video; far_nonfall_per_hour chia giờ ngoài cửa sổ dung sai.
+    FAR chính far_nonfall_per_hour chia giờ video NGOÀI cửa sổ dung sai; far_per_hour chia tổng giờ, là số phụ.
     """
     tp, fp, fn = (sum(row[key] for row in rows) for key in ("tp", "fp", "fn"))
     latencies = [value for row in rows for value in row["latencies_s"]]

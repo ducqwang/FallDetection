@@ -89,7 +89,11 @@ def _le2i_section(meta: pd.DataFrame, bbox_stats: dict) -> str:
             "Không phân biệt được té ngã hay chủ động nằm.\n"
             f"- Dòng bbox đã đọc: {bbox_stats['n_rows']}; bỏ dòng toàn 0: {bbox_stats['n_zero']}; "
             f"bỏ hộp không còn diện tích sau khi clip: {bbox_stats['n_degenerate']}.\n"
-            "- bbox vượt khung là hợp lệ (người bị cắt ở mép), đã clip vào khung hình.\n")
+            "- bbox vượt khung là hợp lệ (người bị cắt ở mép), đã clip vào khung hình.\n"
+            "- `adl_hard_neg = 0` cho toàn bộ Le2i ở giữa kỳ: danh sách video Le2i negative khó chưa có.\n"
+            "- Le2i chia theo (nhãn, scene), nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test. "
+            "Kết quả trong cùng bộ Le2i có thể lạc quan. Tập test Le2i rất nhỏ (ước tính khoảng 14 fall và 5 ADL), "
+            "nên kết quả chính là cross-dataset (`--split all`).\n")
 
 
 def _checks_section(check_lines: list[str]) -> str:

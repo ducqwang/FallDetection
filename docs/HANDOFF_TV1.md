@@ -34,9 +34,9 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 32bf07b  |  Cập nhật: 2026-11-
 | `src/data/env_info.py` | Ô đầu notebook | `setup_notebook(config, seed)` | yaml | in version |
 | `src/eda/window_features.py` | Đặc trưng theo cửa sổ | `build_window_features(...)` | bbox, metadata | X, y |
 | `src/eda/plots.py` | CLI Việc 4 | `plot_*`, `plot_embedding(X, y, source, out, perplexity, seed)`; `--meta --gt-bbox --tracks --out-dir` | metadata, bbox | 5 PNG |
-| `src/models/m1_features.py` | Tín hiệu theo track | `track_signals(track, fps, smooth_s, reference_s)` | track | DataFrame |
-| `src/models/m1_rule.py` | CLI M1 | `predict`, `score_signals`; `--tracks \| --gt-bbox --meta --out --tuned` | tracks | `predictions.csv` |
-| `src/eval/event_metrics.py` | Độ đo sự kiện | `find_alarms`, `match_alarms`, `evaluate(pred, meta_rows, thr, tolerance_s, merge_gap_s, frame_labels)` | dự đoán, metadata | dict |
+| `src/models/m1_features.py` | Tín hiệu theo track | `split_at_long_gaps(track, fps, max_gap_s)`, `track_signals(track, fps, smooth_s, reference_s)` | track | DataFrame |
+| `src/models/m1_rule.py` | CLI M1 | `predict`, `score_signals`, `posture_score`; `--tracks \| --gt-bbox --meta --out --tuned` | tracks | `predictions.csv` |
+| `src/eval/event_metrics.py` | Độ đo sự kiện | `find_alarms`, `match_alarms`, `evaluate(pred, meta_rows, thr, tolerance_s, merge_gap_s, frame_labels, reference_meta)` | dự đoán, metadata | dict |
 | `src/eval/frame_metrics.py` | Độ đo frame | `frame_level_metrics(records, thr)` | điểm theo frame | dict |
 | `scripts/evaluate.py` | CLI đánh giá | `--pred --meta --split --dataset --thr --tuned --T --tag` | csv | bảng, JSON |
 | `scripts/tune_m1.py` | Grid search chỉ trên val | `--tracks \| --gt-bbox --meta --dataset --out` | tracks | yaml, csv |
@@ -72,9 +72,10 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 32bf07b  |  Cập nhật: 2026-11-
 - Le2i: chưa đo trên video thật. Số 130/96/31/3 trong log chạy thử là của dữ liệu giả.
 - Chất lượng M1 (P, R, F1, FAR, latency): chưa đo.
 
+- Dữ liệu tổng hợp, không phải dataset (đo bằng đoạn lệnh tạm trước khi sửa; tính chất tương ứng được kiểm tra trong `tests/test_m1.py`): `aspect` đứng 0.353, nằm 2.833; tại frame vừa nằm `posture_score` = 1.0. Khoảng trống 10 frame: `vy` lớn nhất 0.1765, bằng lúc không có khoảng trống; nếu tính theo số dòng sẽ là 2.75.
 - YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python -m pytest tests -q`: 95 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
+Test: `python -m pytest tests -q`: 121 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
 - Toàn bộ chạy trên Kaggle, có output thật → agent không chạy trên dataset → TV1 quyết định tự chạy sau.
@@ -83,23 +84,24 @@ Test: `python -m pytest tests -q`: 95 pass, 0 fail (phần lớn dữ liệu gi�
 - `requirements.txt` chốt cứng → đã làm, nhưng notebook Kaggle chỉ cài `ultralytics` và `lap` → cài cả file sẽ thay torch có sẵn của Kaggle.
 - Đặt EDA ở `notebooks/01_eda.ipynb` → đặt ở `notebooks/tv1_01_eda.ipynb` → `01_eda.ipynb` là file có sẵn của TV3, đã khôi phục nguyên bản từ `main`.
 - Việc 0 không sửa logic → giữ nguyên source, chỉ xóa output → notebook Le2i nặng 6 MB do ảnh ghép của người thật.
-- FAR = FP / tổng giờ video → giữ đúng, thêm `far_nonfall_per_hour` → mục 2.2 nói FAR tính trên đoạn không-ngã, có thể hiểu theo cả hai cách.
-- Thêm ngoài danh sách: `--split all`, `--tuned`, `--T` nhiều giá trị, `scripts/summarize_results.py`, tách `src/data/{common,media,urfd,le2i,metadata,checks,data_card,env_info}.py`, `src/models/m1_features.py`, `src/eval/frame_metrics.py` → để giữ mỗi file dưới 250 dòng và chạy cross-dataset.
+- FAR = FP / tổng giờ video (Việc 6) → FAR chính là `far_nonfall_per_hour`, `far_per_hour` là số phụ → TV1 đã chốt.
+- `window_label` chia theo độ dài cửa sổ (Việc 3) → chia theo min(độ dài cửa sổ, độ dài sự kiện) → TV1 đã chốt, tránh cửa sổ dài không bao giờ dương.
+- Gọi `check_predictions` ở script và trong `evaluate()`, nhưng chỉ một chỗ → chỉ gọi trong `evaluate()`; script truyền toàn bộ metadata qua `reference_meta` → nếu lọc trước thì `video_id` lạ sẽ không bị bắt.
+- Thêm ngoài danh sách: `--split all`, `--tuned`, `--T` nhiều giá trị, `reference_meta` trong `evaluate()`, `scripts/summarize_results.py`, tách `src/data/{common,media,urfd,le2i,metadata,checks,data_card,env_info}.py`, `src/models/m1_features.py`, `src/eval/frame_metrics.py` → để giữ mỗi file dưới 250 dòng và chạy cross-dataset.
 
 ## Giả định và việc bạn tự quyết
 - `label` để trống với 3 video ODD: schema chỉ có `fall|adl`, điền giá trị nào cũng là đoán.
 - URFD: `scene = urfd`, `scene_part` trống. Le2i: `camera` trống, vì dữ liệu không có thông tin camera.
-- `adl_hard_neg = 0` ở mọi video Le2i: chỉ có 1 ví dụ sofa được nêu, chưa có danh sách.
 - `path` trong metadata là đường dẫn tương đối, để dataset chuyển sang `/kaggle/input` vẫn dùng được.
 - `select_main_track` Le2i: mẫu số là số frame có GT, để track rất ngắn không thắng.
 - bbox không còn diện tích sau khi clip thì bỏ và đếm trong DATA_CARD.
 - Chiều cao chuẩn hóa vận tốc là chiều cao lớn nhất trong 1.5 s gần nhất, vì bbox thấp đi khi ngã.
 - M1 chỉ dùng quá khứ, nên điểm tính được khi video đang chạy.
 - Thành phần bất động của M1: số giây bất động liên tục từ khi tư thế đổi, chia cho `immobile_s`, tối đa bằng 1; chỉ cộng điểm, không bắt buộc.
+- Khoảng trống track dài hơn `max_gap_s = 0.5` giây: tách đoạn, reset trạng thái, không xuất điểm trong khoảng trống; ngắn hơn: nội suy tuyến tính.
 - Lưu file nhỏ của dữ liệu vào `dataset_index/`, vì thư mục tên `data/` bị `.gitignore` chặn.
 - Trọng số M1 cố định 0.30/0.10/0.45/0.15, không nằm trong lưới tune, để lưới nhỏ và dễ giải thích.
 - Giữ `conf = 0.25` và `yolo11n.pt` theo `configs/default.yaml`.
-- Le2i chia theo (nhãn, scene), không tách thêm phần 01/02.
 
 ## Việc còn tồn đọng / rủi ro đã biết
 Output cần dataset, TV1 tự chạy (theo checklist mục 7):
@@ -116,8 +118,21 @@ Rủi ro đã biết:
 - Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
 - Thay đổi chưa commit ở `src/trainer.py` (chỉ khoảng trắng) không phải của nhánh này, được để nguyên.
 
+## Quyết định của TV1 đã chốt
+1. FAR báo cáo chính là `far_nonfall_per_hour`; `far_per_hour` là số phụ. Ghi ở `docs/EVAL_PROTOCOL.md`.
+2. Hai module cũ của TV3 khác định nghĩa mới: TV1 không sửa, xem mục "Việc cho TV3".
+3. `adl_hard_neg = 0` cho toàn bộ Le2i ở giữa kỳ; danh sách video Le2i negative khó chưa có. Ghi ở `DATA_CARD.md`.
+4. Cảnh báo tính tại frame đầu của đoạn; đoạn bắt đầu trước cửa sổ dung sai bị tính cả FP lẫn FN. Ghi ở `docs/EVAL_PROTOCOL.md`, kèm ví dụ số.
+5. Le2i chia theo (nhãn, scene) nên kết quả trong cùng bộ có thể lạc quan; kết quả chính là cross-dataset (`--split all`). Ghi ở `DATA_CARD.md` và `docs/EVAL_PROTOCOL.md`.
+6. `mp4 frame mismatch` là số đếm thật từ `convert_videos`; có video lệch thì đã raise trước dòng log.
+
+## Việc cho TV3
+TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không sửa.
+
+| File, dòng (trên `main`) | Code hiện tại | Khác định nghĩa mới |
+|---|---|---|
+| `src/evaluate.py:41` | `latencies.append(max(0.0, (a - s) / fps))` | Cắt latency âm về 0; định nghĩa mới giữ giá trị âm |
+| `src/datasets.py:43` | `return [(0, max(1, n_frames - 1))]` | Coi cả chuỗi URFD là một sự kiện; định nghĩa mới dùng `fall_start_frame`, `fall_end_frame` trong `metadata.csv` |
+
 ## Câu hỏi cho TV1
-1. FAR báo cáo chính dùng mẫu số nào: tổng giờ video (`far_per_hour`) hay giờ không-ngã (`far_nonfall_per_hour`)?
-2. Hai module cũ của TV3 trái định nghĩa mới: `src/evaluate.py` cắt latency âm về 0, `src/datasets.py` coi cả chuỗi URFD là một sự kiện. Có cần TV3 chuyển sang `src/eval/event_metrics.py` không?
-3. Có đánh dấu `adl_hard_neg = 1` cho video sofa của Le2i không? Nếu có cần danh sách.
-4. Version của 3 dataset Kaggle là bao nhiêu?
+1. Version của 3 dataset Kaggle là bao nhiêu? (điền vào `configs/data.yaml`)

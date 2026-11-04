@@ -18,7 +18,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data.common import METADATA_DTYPES  # noqa: E402
-from src.eval.event_metrics import DEFAULT_MERGE_GAP_S, DEFAULT_THR, evaluate  # noqa: E402
+from src.eval.event_metrics import DEFAULT_MERGE_GAP_S, DEFAULT_THR, MAIN_FAR_KEY, evaluate  # noqa: E402
 
 
 def select_videos(meta: pd.DataFrame, splits_path: Path, dataset: str, split: str) -> pd.DataFrame:
@@ -43,8 +43,9 @@ def print_table(results: list[dict]) -> None:
         event, frame, hard = result["event"], result["frame"], result["hard_negative"]
         print(f"\nT = {result['params']['tolerance_s']} s | thr = {result['params']['thr']}")
         for key in ("n_videos", "n_events", "tp", "fp", "fn", "ignored_alarms", "precision", "recall", "f1",
-                    "far_per_hour", "far_nonfall_per_hour", "latency_mean_s", "latency_median_s"):
-            print(f"  {key:22s} {format_value(event[key])}")
+                    MAIN_FAR_KEY, "far_per_hour", "latency_mean_s", "latency_median_s"):
+            note = " (FAR CHÍNH)" if key == MAIN_FAR_KEY else " (số phụ)" if key == "far_per_hour" else ""
+            print(f"  {key:22s} {format_value(event[key])}{note}")
         print(f"  frame: accuracy={format_value(frame['accuracy'])} roc_auc={format_value(frame['roc_auc'])} "
               f"pr_auc={format_value(frame['pr_auc'])} (trên {frame['n_frames']} frame)")
         print(f"  ADL negative khó: {hard['n_videos']} video | có FP: {hard['n_videos_with_fp']} "

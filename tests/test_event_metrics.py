@@ -3,6 +3,7 @@
 Đầu vào: không có. Kiểm tra: đúng giờ, sớm/muộn vượt T, 2 cảnh báo 1 sự kiện, ADL, không cảnh báo, merge, FAR, frame.
 Ví dụ: python -m pytest tests/test_event_metrics.py -q
 """
+import json
 import subprocess
 import sys
 
@@ -11,7 +12,8 @@ import pandas as pd
 import pytest
 from conftest import meta_frame, meta_row
 
-from src.eval.event_metrics import check_predictions, evaluate, find_alarms, match_alarms, max_score_per_frame
+from src.eval.event_metrics import (MAIN_FAR_KEY, check_predictions, evaluate, find_alarms, match_alarms,
+                                    max_score_per_frame)
 
 FPS = 30.0
 EVENT = (100, 130)  # [3.33 s, 4.33 s]; T = 1 s cho cửa sổ frame [70, 160]
@@ -104,6 +106,32 @@ def test_evaluate_aggregates_and_counts_far_on_all_hours():
     assert event["latency_mean_s"] == pytest.approx(event["latency_median_s"])
     hard = result["hard_negative"]
     assert (hard["n_videos"], hard["n_videos_with_fp"], hard["fp"]) == (1, 1, 1)
+
+
+def test_alarm_starting_before_window_is_fp_and_fn_even_if_it_runs_into_window():
+    """Quyết định C4: cảnh báo tính tại frame đầu của đoạn, đoạn 50..110 chạm cửa sổ [70, 160] nhưng bắt đầu trước."""
+    meta = meta_frame([meta_row("fall", "fall", 300, start=100, end=130)])
+    event = evaluate(predictions("fall", range(50, 111)), meta, thr=0.5)["event"]
+    assert (event["tp"], event["fp"], event["fn"]) == (0, 1, 1)
+
+
+def test_main_far_excludes_tolerance_window_from_hours():
+    """Video 10 s, sự kiện 100..130 (3.33..4.33 s), T = 1 s: cửa sổ dài 3 s nên còn 7 s không-ngã."""
+    meta = meta_frame([meta_row("fall", "fall", 300, start=100, end=130)])
+    event = evaluate(predictions("fall", [10, 200]), meta, thr=0.5)["event"]
+    assert event["fp"] == 2
+    assert event[MAIN_FAR_KEY] == pytest.approx(2 / (7 / 3600))
+    assert event["far_per_hour"] == pytest.approx(2 / (10 / 3600))
+
+
+def test_summary_table_names_main_far_column(tmp_path):
+    meta = meta_frame([meta_row("fall", "fall", 300, start=100, end=130)])
+    result = evaluate(predictions("fall", [110]), meta, thr=0.5)
+    (tmp_path / "run.json").write_text(json.dumps({"results": [result]}), encoding="utf-8")
+    subprocess.run([sys.executable, "scripts/summarize_results.py", "--results-dir", str(tmp_path), "--out",
+                    str(tmp_path / "s.csv")], check=True, capture_output=True)
+    columns = pd.read_csv(tmp_path / "s.csv").columns.tolist()
+    assert "far_nonfall_per_hour (CHÍNH)" in columns and "far_per_hour (phụ)" in columns
 
 
 def test_video_without_predictions_is_fn():

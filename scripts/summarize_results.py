@@ -12,8 +12,10 @@ from pathlib import Path
 
 import pandas as pd
 
-EVENT_KEYS = ["n_videos", "n_events", "tp", "fp", "fn", "precision", "recall", "f1", "far_per_hour",
-              "far_nonfall_per_hour", "latency_mean_s", "latency_median_s"]
+MAIN_FAR_COLUMN = "far_nonfall_per_hour (CHÍNH)"
+SECONDARY_FAR_COLUMN = "far_per_hour (phụ)"
+EVENT_KEYS = ["n_videos", "n_events", "tp", "fp", "fn", "precision", "recall", "f1", "far_nonfall_per_hour",
+              "far_per_hour", "latency_mean_s", "latency_median_s"]
 ROUND_DECIMALS = 3
 
 
@@ -40,6 +42,7 @@ def main() -> None:
     if not paths:
         raise FileNotFoundError(f"Không có file JSON trong {args.results_dir}")
     table = pd.DataFrame([row for path in paths for row in result_rows(path)]).round(ROUND_DECIMALS)
+    table = table.rename(columns={"far_nonfall_per_hour": MAIN_FAR_COLUMN, "far_per_hour": SECONDARY_FAR_COLUMN})
     table.to_csv(args.out, index=False)
     print(table.to_string(index=False))
     print(f"TÓM TẮT | file JSON: {len(paths)} | dòng: {len(table)} | bỏ qua: 0 | Đã ghi: {args.out}")

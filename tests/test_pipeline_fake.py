@@ -62,7 +62,8 @@ def test_data_card_has_required_sections(processed):
     card = (processed / "DATA_CARD.md").read_text(encoding="utf-8")
     for text in ("dài đúng 30 frame", "Office và Lecture room", "CSV_THIEU_FRAME", "Kwolek", "Charfi", "shahliza27",
                  "Kiểm tra bắt buộc", "URFD Fall khớp hoàn toàn: 30/30", "URFD dòng CSV không có ảnh: 0",
-                 "Le2i: 130 video (96 fall, 31 adl, 3 odd)", "Le2i kích thước"):
+                 "Le2i: 130 video (96 fall, 31 adl, 3 odd)", "Le2i kích thước",
+                 "danh sách video Le2i negative khó chưa có", "cùng người và cùng cảnh quay", "--split all"):
         assert text in card
 
 
