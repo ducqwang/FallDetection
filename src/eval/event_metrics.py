@@ -21,20 +21,28 @@ TIME_EPS = 1e-9  # chống sai số làm tròn khi cảnh báo rơi đúng mép 
 
 
 def check_predictions(predictions: pd.DataFrame, meta: pd.DataFrame) -> None:
-    """Raise nếu predictions sai schema, điểm ngoài [0, 1] hoặc frame_idx (0-based) ngoài video."""
+    """Raise ValueError nếu predictions sai schema, video_id lạ, điểm hoặc frame_idx (0-based) ngoài phạm vi.
+
+    meta: bảng có video_id và n_frames của mọi video được phép xuất hiện.
+    """
     missing = sorted(set(PREDICTION_COLUMNS) - set(predictions.columns))
     if missing:
         raise ValueError(f"predictions thiếu cột {missing}")
     scores = predictions["fall_score"]
     if scores.isna().any() or (scores < 0).any() or (scores > 1).any():
-        raise ValueError("fall_score phải nằm trong [0, 1] và không được NaN")
+        bad = predictions[scores.isna() | (scores < 0) | (scores > 1)].iloc[0]
+        raise ValueError(f"fall_score phải nằm trong [0, 1] và không được NaN: video {bad['video_id']}, "
+                         f"frame {bad['frame_idx']}, điểm {bad['fall_score']}")
     n_frames = meta.set_index("video_id")["n_frames"]
     unknown = sorted(set(predictions["video_id"]) - set(n_frames.index))
     if unknown:
         raise ValueError(f"predictions có video_id không có trong metadata: {unknown[:5]}")
     limits = predictions["video_id"].map(n_frames)
-    if ((predictions["frame_idx"] < 0) | (predictions["frame_idx"] >= limits)).any():
-        raise ValueError("predictions có frame_idx ngoài phạm vi video")
+    outside = (predictions["frame_idx"] < 0) | (predictions["frame_idx"] >= limits)
+    if outside.any():
+        bad = predictions[outside].iloc[0]
+        raise ValueError(f"frame_idx ngoài phạm vi: video {bad['video_id']}, frame {bad['frame_idx']}, "
+                         f"n_frames {n_frames[bad['video_id']]}")
 
 
 def max_score_per_frame(video_predictions: pd.DataFrame, n_frames: int) -> np.ndarray:
@@ -172,16 +180,21 @@ def _frame_record(result: dict, scores: np.ndarray, frame_labels: pd.DataFrame |
 
 def evaluate(predictions: pd.DataFrame, meta_rows: pd.DataFrame, thr: float = DEFAULT_THR,
              tolerance_s: float = DEFAULT_TOLERANCE_S, merge_gap_s: float = DEFAULT_MERGE_GAP_S,
-             frame_labels: pd.DataFrame | None = None) -> dict:
+             frame_labels: pd.DataFrame | None = None, reference_meta: pd.DataFrame | None = None) -> dict:
     """Đánh giá các video trong meta_rows; video không có dòng dự đoán tính là không cảnh báo.
 
     thr ∈ [0, 1]; tolerance_s, merge_gap_s tính bằng giây; frame_idx 0-based.
+    predictions được kiểm tra tại đây, đây là chỗ kiểm tra duy nhất. reference_meta (mặc định meta_rows) là
+    bảng dùng để kiểm tra: truyền toàn bộ metadata nếu predictions có cả video ngoài tập đánh giá;
+    các video đó hợp lệ và bị bỏ qua khi tính độ đo.
     Video has_event_label = 0 không được đánh giá. Trả về dict: params, event, frame,
     hard_negative, per_video. frame_labels (urfd_frame_labels) bật lọc frame có nhãn ở ADL.
     """
     if (meta_rows["has_event_label"] != 1).any():
         raise ValueError("Không đánh giá video has_event_label = 0")
-    groups = dict(tuple(predictions.groupby("video_id"))) if len(predictions) else {}
+    check_predictions(predictions, meta_rows if reference_meta is None else reference_meta)
+    in_scope = predictions[predictions["video_id"].isin(meta_rows["video_id"])]
+    groups = dict(tuple(in_scope.groupby("video_id"))) if len(in_scope) else {}
     empty = predictions.iloc[0:0]
     results, records = [], []
     for _, row in meta_rows.iterrows():

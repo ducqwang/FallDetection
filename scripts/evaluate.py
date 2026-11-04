@@ -18,8 +18,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data.common import METADATA_DTYPES  # noqa: E402
-from src.eval.event_metrics import (DEFAULT_MERGE_GAP_S, DEFAULT_THR, check_predictions,  # noqa: E402
-                                    evaluate)
+from src.eval.event_metrics import DEFAULT_MERGE_GAP_S, DEFAULT_THR, evaluate  # noqa: E402
 
 
 def select_videos(meta: pd.DataFrame, splits_path: Path, dataset: str, split: str) -> pd.DataFrame:
@@ -76,21 +75,20 @@ def main() -> None:
     meta_path = Path(args.meta)
     meta = pd.read_csv(meta_path, dtype=METADATA_DTYPES)
     predictions = pd.read_csv(args.pred)
-    check_predictions(predictions, meta)
     videos = select_videos(meta, Path(args.splits) if args.splits else meta_path.parent / "splits.json",
                            args.dataset, args.split)
     labels_path = Path(args.frame_labels) if args.frame_labels else meta_path.parent / "annotations" / "urfd_frame_labels.csv"
     frame_labels = pd.read_csv(labels_path) if args.dataset == "urfd" and labels_path.exists() else None
     thr = yaml.safe_load(Path(args.tuned).read_text(encoding="utf-8"))["alarm"]["thr"] if args.tuned else args.thr
-    in_scope = predictions[predictions["video_id"].isin(videos["video_id"])]
-    results = [evaluate(in_scope, videos, thr, tolerance, args.merge_gap, frame_labels) for tolerance in args.T]
+    results = [evaluate(predictions, videos, thr, tolerance, args.merge_gap, frame_labels, reference_meta=meta)
+               for tolerance in args.T]
     print_table(results)
     tag = args.tag or Path(args.pred).stem
     out_path = Path(args.out_dir) / f"{tag}_{args.dataset}_{args.split}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"pred": str(args.pred), "dataset": args.dataset, "split": args.split, "results": results}
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    n_skipped = predictions["video_id"].nunique() - in_scope["video_id"].nunique()
+    n_skipped = predictions.loc[~predictions["video_id"].isin(videos["video_id"]), "video_id"].nunique()
     print(f"\nTÓM TẮT | video đánh giá: {len(videos)} | video có dự đoán ngoài tập, bỏ qua: {n_skipped} | Đã ghi: {out_path}")
 
 

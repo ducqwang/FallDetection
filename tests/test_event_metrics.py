@@ -3,6 +3,9 @@
 Đầu vào: không có. Kiểm tra: đúng giờ, sớm/muộn vượt T, 2 cảnh báo 1 sự kiện, ADL, không cảnh báo, merge, FAR, frame.
 Ví dụ: python -m pytest tests/test_event_metrics.py -q
 """
+import subprocess
+import sys
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -133,7 +136,35 @@ def test_frame_metrics_one_class_gives_none():
     assert result["roc_auc"] is None and result["pr_auc"] is None
 
 
-@pytest.mark.parametrize("change", [{"fall_score": 1.5}, {"frame_idx": 300}, {"video_id": "khac"}])
+BAD_INPUTS = [({"fall_score": 1.5}, "fall_score"), ({"frame_idx": 300}, "frame_idx"), ({"video_id": "khac"}, "khac")]
+
+
+@pytest.mark.parametrize("change,message", BAD_INPUTS)
+def test_evaluate_raises_value_error_not_index_error(change, message):
+    meta = meta_frame([meta_row("adl", "adl", 300)])
+    with pytest.raises(ValueError, match=message):
+        evaluate(predictions("adl", [1]).assign(**change), meta)
+
+
+@pytest.mark.parametrize("change,message", BAD_INPUTS)
+def test_cli_rejects_bad_predictions_with_clear_message(change, message, tmp_path):
+    meta_frame([meta_row("adl", "adl", 300), meta_row("f", "fall", 300, start=10, end=40)]).to_csv(tmp_path / "metadata.csv", index=False)
+    predictions("adl", [1]).assign(**change).to_csv(tmp_path / "pred.csv", index=False)
+    done = subprocess.run([sys.executable, "scripts/evaluate.py", "--pred", str(tmp_path / "pred.csv"), "--meta",
+                           str(tmp_path / "metadata.csv"), "--split", "all", "--dataset", "urfd", "--out-dir", str(tmp_path)],
+                          capture_output=True, text=True)
+    assert done.returncode != 0 and "ValueError" in done.stderr and message in done.stderr
+    assert "IndexError" not in done.stderr
+
+
+def test_predictions_of_other_videos_are_valid_but_not_counted():
+    meta = meta_frame([meta_row("val", "adl", 300), meta_row("test", "adl", 300)])
+    table = pd.concat([predictions("val", [1]), predictions("test", [1])])
+    result = evaluate(table, meta[meta["video_id"] == "val"], thr=0.5, reference_meta=meta)
+    assert result["event"]["n_videos"] == 1 and result["event"]["fp"] == 1
+
+
+@pytest.mark.parametrize("change", [change for change, _ in BAD_INPUTS])
 def test_check_predictions_rejects_bad_input(change):
     meta = meta_frame([meta_row("adl", "adl", 300)])
     table = predictions("adl", [1]).assign(**change)
