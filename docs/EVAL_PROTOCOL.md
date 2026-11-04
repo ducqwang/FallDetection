@@ -25,7 +25,7 @@ Lựa chọn "bỏ qua" nghĩa là hệ thống báo lặp lại ngay trong lúc
 
 **Quy tắc bảo thủ:** cảnh báo được tính tại frame ĐẦU của đoạn. Đoạn cảnh báo bắt đầu trước cửa sổ dung sai nhưng kéo dài vào trong cửa sổ bị tính **cả FP lẫn FN**.
 
-Ví dụ: video 30 fps, sự kiện `[100, 130]` frame, `T = 1.0 s`, nên cửa sổ là frame `[70, 160]`. Đoạn có điểm vượt ngưỡng từ frame 50 đến frame 110 có thời điểm cảnh báo là frame 50, tức 1.67 s, sớm hơn mép cửa sổ 2.33 s. Kết quả: 1 FP và 1 FN, dù đoạn này phủ cả phần đầu cú ngã. Chọn cách này vì cảnh báo đã kêu từ trước đó không chứng tỏ hệ thống nhận ra cú ngã. Test: `test_alarm_starting_before_window_is_fp_and_fn_even_if_it_runs_into_window`.
+Ví dụ: video 30 fps, sự kiện `[100, 130]` frame, `T = 1.0 s`, nên cửa sổ là frame `[70, 160]`. Đoạn có điểm vượt ngưỡng từ frame 50 đến frame 110 có thời điểm cảnh báo là frame 50, tức 1.67 s. Mép đầu cửa sổ là frame 70, tức 2.33 s, nên cảnh báo sớm hơn mép cửa sổ 20 frame, tức 0.67 s. Kết quả: 1 FP và 1 FN, dù đoạn này phủ cả phần đầu cú ngã. Chọn cách này vì cảnh báo đã kêu từ trước đó không chứng tỏ hệ thống nhận ra cú ngã. Test: `test_alarm_starting_before_window_is_fp_and_fn_even_if_it_runs_into_window`.
 
 ## 3. Độ đo mức sự kiện
 

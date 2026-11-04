@@ -113,7 +113,9 @@ Output cần dataset, TV1 tự chạy (theo checklist mục 7):
 Rủi ro đã biết:
 - Toàn bộ pipeline chưa chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch.
 - Ngưỡng mặc định trong `configs/m1.yaml` là giá trị khởi đầu, chưa kiểm chứng trên dữ liệu thật. Chất lượng M1 chưa đo.
-- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp; nếu gặp, assert dừng kèm tên video.
+- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp. `avi_to_mp4` giữ nguyên tham số của prompt, không thêm cờ trước khi có lỗi thật.
+- Nếu mp4 lệch số frame ở bước chạy thật đầu tiên: `_verify_mp4` trong `src/data/prepare_data.py` in tên video, số frame nguồn, số frame mp4, kèm gợi ý `thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)` cho Le2i, rồi `convert_videos` in mọi video lệch và dừng. Test: `test_le2i_frame_mismatch_names_video_counts_and_hint`.
+- Khi tune M1, để ý frame người mới vào khung: bbox lớn dần và bị cắt mép có thể làm vận tốc dọc tăng giả, gây FP. Chưa xử lý vì chưa thấy trên dữ liệu thật. Nếu thấy, thêm quy tắc bỏ qua vài frame đầu của mỗi track.
 - M1 khó thấy người ngã thẳng về phía camera vì w/h ít đổi.
 - Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
 - Thay đổi chưa commit ở `src/trainer.py` (chỉ khoảng trắng) không phải của nhánh này, được để nguyên.
