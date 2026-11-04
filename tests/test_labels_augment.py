@@ -58,7 +58,7 @@ def test_window_label_adl_always_zero():
 
 def test_window_label_rejects_unknown_class():
     with pytest.raises(ValueError):
-        window_label({"video_id": "odd", "label": None}, 0, 10)
+        window_label({"video_id": "no_label", "label": None}, 0, 10)
 
 
 def tracks(track_id, frames, box):

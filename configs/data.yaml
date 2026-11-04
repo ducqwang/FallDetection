@@ -40,18 +40,22 @@ expect:
   le2i:
     n_total_folder: 190
     excluded: {lecture_room: 27, office: 33}
-    # "scene|part": [số video, fall, adl, odd]
+    # "scene|part": [số video, fall, adl]
     per_part:
-      "coffee_room|01": [48, 47, 0, 1]
-      "coffee_room|02": [22, 12, 8, 2]
-      "home|01": [30, 30, 0, 0]
-      "home|02": [30, 7, 23, 0]
-    odd_keys: ["coffee_room|01|26", "coffee_room|02|50", "coffee_room|02|52"]
+      "coffee_room|01": [48, 48, 0]
+      "coffee_room|02": [22, 14, 8]
+      "home|01": [30, 30, 0]
+      "home|02": [30, 7, 23]
+    # 3 video có cặp khoảng ngã ở giữa file. start, end là frame gốc từ 1; lines là số dòng trong file, từ 1.
+    header_mid:
+      "coffee_room|01|26": {start: 197, end: 227, lines: [219, 220], last_frame: 278}
+      "coffee_room|02|50": {start: 1816, end: 1852, lines: [1894, 1895], last_frame: 1954}
+      "coffee_room|02|52": {start: 87, end: 113, lines: [156, 157], last_frame: 215}
     fps: {coffee_room: 25, home: 24}
     sizes: [[320, 240], [320, 180]]
     small_size: [320, 180]
     n_small_size: {"home|01": 19, "home|02": 6}
-    # Đếm trên 127 video có hai dòng đầu (không tính 3 video ODD).
+    # Ba số dưới đây đo trên các video label_source = header_top, chưa đo lại cho 3 video header_mid.
     n_bbox_rows: 39970
     n_bbox_zero_rows: 71
     fall_len_frames: {min: 7, median: 23.5, max: 45}

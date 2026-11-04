@@ -11,6 +11,7 @@ import pandas as pd
 from .common import METADATA_COLUMNS, NULLABLE_INT_COLUMNS, le2i_video_id, urfd_video_id
 
 URFD_SCENE = "urfd"
+URFD_LABEL_SOURCE = "urfd_csv"
 VIDEO_DIR = "videos"
 COVERAGE_DECIMALS = 4
 
@@ -34,12 +35,12 @@ def urfd_row(sequence: dict, fps: int) -> dict:
         "label_last_frame": sequence["label_last_frame"],
         "label_coverage": round(sequence["n_csv_rows"] / n_frames, COVERAGE_DECIMALS),
         "adl_hard_neg": int(not is_fall and sequence["n_label0"] + sequence["n_label1"] > 0),
-        "path": _video_path(video_id),
+        "path": _video_path(video_id), "label_source": URFD_LABEL_SOURCE,
     }
 
 
 def le2i_row(video: dict) -> dict:
-    """1 dòng metadata Le2i. ODD hoặc thiếu annotation: label trống, has_event_label = 0."""
+    """1 dòng metadata Le2i, frame 0-based. Thiếu annotation: label trống, has_event_label = 0."""
     video_id = le2i_video_id(video["scene"], video["part"], video["number"])
     kind = video["kind"]
     return {
@@ -52,7 +53,7 @@ def le2i_row(video: dict) -> dict:
         "duration_s": video["n_frames"] / video["fps"],
         "has_event_label": int(kind in ("fall", "adl")),
         "label_first_frame": None, "label_last_frame": None, "label_coverage": None,
-        "adl_hard_neg": 0, "path": _video_path(video_id),
+        "adl_hard_neg": 0, "path": _video_path(video_id), "label_source": video["label_source"],
     }
 
 

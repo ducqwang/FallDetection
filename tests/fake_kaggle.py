@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 ADL_IMAGE_COUNTS = {1: 150, 2: 180, 6: 230, 8: 180, 13: 265, 15: 275, 16: 240, 17: 230, 18: 265, 19: 250,
                     20: 270, 21: 280, 30: 400, 36: 340, 37: 350, 38: 345, 39: 270, 40: 330}
 SHORT_FALLS = {13: 12, 15: 14, 16: 9, 17: 7, 21: 5, 25: 11, 27: 12, 28: 10}
-ODD_KEYS = {("coffee_room", "01", 26), ("coffee_room", "02", 50), ("coffee_room", "02", 52)}
+HEADER_MID_KEYS = {("coffee_room", "01", 26), ("coffee_room", "02", 50), ("coffee_room", "02", 52)}
 LE2I_PARTS = [("Coffee_room_01", "Annotation_files", "coffee_room", "01", range(1, 49), 25),
               ("Coffee_room_02", "Annotations_files", "coffee_room", "02", range(49, 71), 25),
               ("Home_01", "Annotation_files", "home", "01", range(1, 31), 24),
@@ -28,6 +28,7 @@ LE2I_PARTS = [("Coffee_room_01", "Annotation_files", "coffee_room", "01", range(
 LE2I_ADL = {("coffee_room", "02"): range(63, 71), ("home", "02"): range(38, 61)}
 N_SMALL = {("home", "01"): 19, ("home", "02"): 6}
 N_LE2I_FRAMES = 30
+MID_PAIR = ["10", "20"]
 
 
 def fake_urfd_csvs(folder: Path) -> tuple[Path, Path]:
@@ -87,13 +88,18 @@ def _fake_avi(path: Path, fps: int, size: tuple[int, int]) -> None:
 
 
 def _annotation_lines(kind: str, width: int) -> list[str]:
-    """Annotation đúng định dạng thật: đầu video đứng, sau đó nằm; dòng đầu bbox toàn 0."""
-    header = {"fall": ["10", "20"], "adl": ["0", "0"], "odd": []}[kind]
+    """Annotation đúng định dạng thật: đầu video đứng, sau đó nằm; dòng đầu bbox toàn 0.
+
+    kind 'header_mid' đặt cặp khoảng ngã ở dòng 16-17 của file thay vì ở đầu file.
+    """
+    header = {"fall": MID_PAIR, "adl": ["0", "0"], "header_mid": []}[kind]
     boxes = ["1,1,0,0,0,0"]
     for frame in range(2, N_LE2I_FRAMES + 1):
-        lying = kind == "fall" and frame > 15
+        lying = kind != "adl" and frame > 15
         corners = (100, 120, 180, 165) if lying else (120, 40, 160, 160)
         boxes.append(f"{frame},1,{corners[0]},{corners[1]},{min(corners[2] + 5, width + 3)},{corners[3]}")
+    if kind == "header_mid":
+        boxes[15:15] = MID_PAIR
     return header + boxes
 
 
@@ -106,13 +112,13 @@ def make_le2i(root: Path) -> tuple[Path, int, int]:
         n_small = N_SMALL.get((scene, part), 0)
         for order, number in enumerate(numbers):
             size = (320, 180) if order < n_small else (320, 240)
-            kind = "odd" if (scene, part, number) in ODD_KEYS else ("adl" if number in adl_numbers else "fall")
+            kind = "header_mid" if (scene, part, number) in HEADER_MID_KEYS else ("adl" if number in adl_numbers else "fall")
             _fake_avi(dataset / folder / folder / "Videos" / f"video ({number}).avi", fps, size)
             lines = _annotation_lines(kind, size[0])
             annotation = dataset / folder / folder / annot_dir / f"video ({number}).txt"
             annotation.parent.mkdir(parents=True, exist_ok=True)
             annotation.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            if kind != "odd":
+            if kind != "header_mid":
                 n_rows, n_zero = n_rows + N_LE2I_FRAMES, n_zero + 1
     for folder, inner, count in (("Lecture_room", "Lecture room", 27), ("Office", "Office", 33)):
         for number in range(1, count + 1):
@@ -139,7 +145,10 @@ def build(root: Path, falls_csv: Path | None = None, adls_csv: Path | None = Non
     urfd = config["expect"]["urfd"]
     urfd.update(n_images_min=int(min(counts.values())), n_images_max=int(max(counts.values())))
     config["expect"]["le2i"].update(n_bbox_rows=n_rows, n_bbox_zero_rows=n_zero,
-                                    fall_len_frames={"min": 10, "median": 10.0, "max": 10})
+                                    fall_len_frames={"min": 10, "median": 10.0, "max": 10},
+                                    header_mid={f"{scene}|{part}|{number}": {"start": 10, "end": 20, "lines": [16, 17],
+                                                                             "last_frame": N_LE2I_FRAMES}
+                                                for scene, part, number in HEADER_MID_KEYS})
     if falls_csv is None:
         urfd["n_adl_hard_neg"] = 16
     path = root / "data.yaml"

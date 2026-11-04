@@ -141,10 +141,10 @@ def test_video_without_predictions_is_fn():
     assert result["event"]["latency_mean_s"] is None
 
 
-def test_odd_video_is_rejected():
-    meta = meta_frame([meta_row("odd", None, has_label=0)])
+def test_video_without_event_label_is_rejected():
+    meta = meta_frame([meta_row("no_label", None, has_label=0)])
     with pytest.raises(ValueError):
-        evaluate(predictions("odd", [1]), meta)
+        evaluate(predictions("no_label", [1]), meta)
 
 
 def test_frame_metrics_skip_unlabeled_adl_frames():

@@ -12,9 +12,9 @@ METADATA_COLUMNS = [
     "fall_start_frame", "fall_end_frame", "fps", "n_frames",
     "width", "height", "duration_s", "has_event_label",
     "label_first_frame", "label_last_frame", "label_coverage",
-    "adl_hard_neg", "path",
+    "adl_hard_neg", "path", "label_source",
 ]
-GT_BBOX_COLUMNS = ["video_id", "frame_idx", "x1", "y1", "x2", "y2"]
+GT_BBOX_COLUMNS = ["video_id", "frame_idx", "x1", "y1", "x2", "y2", "aux_code"]
 FRAME_LABEL_COLUMNS = ["video_id", "frame_idx", "label"]
 TRACK_COLUMNS = ["video_id", "frame_idx", "track_id", "x1", "y1", "x2", "y2", "det_conf"]
 PREDICTION_COLUMNS = ["video_id", "frame_idx", "track_id", "fall_score"]
@@ -23,7 +23,7 @@ PREDICTION_COLUMNS = ["video_id", "frame_idx", "track_id", "fall_score"]
 NULLABLE_INT_COLUMNS = ["fall_start_frame", "fall_end_frame", "label_first_frame", "label_last_frame"]
 # scene_part phải đọc là chuỗi, nếu không "01" sẽ thành số 1.
 METADATA_DTYPES = {"video_id": str, "dataset": str, "scene": str, "scene_part": str, "camera": str,
-                   "label": str, "path": str, **{c: "Int64" for c in NULLABLE_INT_COLUMNS}}
+                   "label": str, "path": str, "label_source": str, **{c: "Int64" for c in NULLABLE_INT_COLUMNS}}
 
 _URFD_ID_RE = re.compile(r"^urfd_((?:fall|adl)-\d+)_cam\d+$")
 

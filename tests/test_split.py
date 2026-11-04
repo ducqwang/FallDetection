@@ -5,7 +5,7 @@ Ví dụ: python -m pytest tests/test_split.py -q
 """
 import pandas as pd
 import pytest
-from conftest import meta_row
+from conftest import meta_frame, meta_row
 
 from src.data.common import sequence_id
 from src.data.split import PARTS, make_splits, validate_splits
@@ -42,16 +42,17 @@ def test_other_seed_changes_result(full_meta):
 
 
 def test_only_labeled_videos_and_counts(full_meta):
-    splits = make_splits(full_meta)
+    no_label = meta_row("le2i_home01_999", None, dataset="le2i", scene="home", has_label=0)
+    splits = make_splits(meta_frame(full_meta.to_dict("records") + [no_label]))
     assert sum(len(splits["urfd"][part]) for part in PARTS) == 70
     le2i_ids = [v for part in PARTS for v in splits["le2i"][part]]
-    assert len(le2i_ids) == 127 and not any(v.startswith("le2i_coffee_room02_09") for v in le2i_ids)
+    assert len(le2i_ids) == 130 and "le2i_home01_999" not in le2i_ids
     assert splits["seed"] == 42 and splits["ratio"] == [0.7, 0.15, 0.15]
 
 
 def test_ratio_is_close_to_70_15_15(full_meta):
     splits = make_splits(full_meta)
-    assert abs(len(splits["le2i"]["train"]) / 127 - 0.70) < 0.02
+    assert abs(len(splits["le2i"]["train"]) / 130 - 0.70) < 0.02
     assert abs(len(splits["urfd"]["train"]) / 70 - 0.70) < 0.02
 
 

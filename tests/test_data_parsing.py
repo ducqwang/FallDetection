@@ -1,17 +1,16 @@
-"""Test đọc URFD và Le2i theo các tình huống đã kiểm tra thật (mục 2.1, 2.2).
+"""Test đọc URFD, kiểm tra số liệu và chuyển video theo các tình huống đã kiểm tra thật (mục 2.1, 2.2).
 
-Đầu vào: file nhỏ tự tạo trong tmp_path. Kiểm tra: ghép theo số frame, tìm CSV theo đuôi, annotation, clip bbox.
+Đầu vào: file nhỏ tự tạo trong tmp_path. Kiểm tra: ghép theo số frame, tìm CSV theo đuôi, báo video lỗi, báo mp4 lệch frame.
 Ví dụ: python -m pytest tests/test_data_parsing.py -q
 """
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
-from src.data import checks, le2i, prepare_data, urfd
+from src.data import checks, prepare_data, urfd
 from src.data.common import DataCheckError, le2i_video_id, sequence_id, urfd_video_id
-from src.data.metadata import le2i_row, metadata_frame, urfd_row
+from src.data.metadata import urfd_row
 
 EXTRA = [0.0] * 8
 
@@ -82,84 +81,9 @@ def test_urfd_row_fall_zero_based_and_adl_label_does_not_create_event():
     fall_row, adl_row = urfd_row(fall, 30), urfd_row(adl, 30)
     assert (fall_row["fall_start_frame"], fall_row["fall_end_frame"]) == (82, 112)
     assert fall_row["video_id"] == "urfd_fall-01_cam0" and fall_row["adl_hard_neg"] == 0
+    assert fall_row["label_source"] == adl_row["label_source"] == "urfd_csv"
     assert adl_row["fall_start_frame"] is None and adl_row["fall_end_frame"] is None
     assert adl_row["adl_hard_neg"] == 1 and adl_row["label_coverage"] == 0.5
-
-
-def le2i_tree(root):
-    for folder, annot, number, text in (("Home_01", "Annotation_files", 1, "1\n2\n1,1,1,1,5,5\n"),
-                                        ("Coffee_room_02", "Annotations_files", 1, "0\n0\n1,1,1,1,5,5\n")):
-        videos = root / folder / folder / "Videos"
-        notes = root / folder / folder / annot
-        videos.mkdir(parents=True)
-        notes.mkdir(parents=True)
-        (videos / f"video ({number}).avi").touch()
-        (notes / f"video ({number}).txt").write_text(text)
-    office = root / "Office" / "Office"
-    office.mkdir(parents=True)
-    (office / "video (1).avi").touch()
-
-
-def test_le2i_same_number_different_scene_and_annotation_folder_names(tmp_path):
-    le2i_tree(tmp_path)
-    assert le2i.find_le2i_root(tmp_path.parent) == tmp_path
-    videos = {v["key"]: v for v in le2i.scan_videos(tmp_path)}
-    assert set(videos) == {"home|01|1", "coffee_room|02|1", "office||1"}
-    assert videos["home|01|1"]["annotation"].parent.name == "Annotation_files"
-    assert videos["coffee_room|02|1"]["annotation"].parent.name == "Annotations_files"
-    assert videos["office||1"]["annotation"] is None
-
-
-def annotation(tmp_path, text):
-    path = tmp_path / "video (1).txt"
-    path.write_text(text)
-    return le2i.parse_annotation(path)
-
-
-def test_parse_fall_header_and_drop_second_column(tmp_path):
-    parsed = annotation(tmp_path, "48\n80\n1,1,272,48,312,207\n")
-    assert (parsed["kind"], parsed["start"], parsed["end"]) == ("fall", 48, 80)
-    assert parsed["boxes"].tolist() == [[1, 272, 48, 312, 207]]
-
-
-def test_parse_adl_and_odd(tmp_path):
-    assert annotation(tmp_path, "0\n0\n1,1,1,1,5,5\n")["kind"] == "adl"
-    odd = annotation(tmp_path, "1,1,72,58,132,170\n2,1,72,58,132,170\n")
-    assert odd["kind"] == "odd" and odd["start"] is None and len(odd["boxes"]) == 2
-
-
-def test_parse_rejects_reversed_interval(tmp_path):
-    with pytest.raises(DataCheckError):
-        annotation(tmp_path, "50\n10\n1,1,1,1,5,5\n")
-
-
-def test_clean_boxes_zero_rows_clip_and_zero_based():
-    boxes = np.array([[1, 0, 0, 0, 0], [2, -5, 10, 330, 250], [3, 325, 10, 340, 50]], dtype=float)
-    table, stats = le2i.clean_boxes("v", boxes, 320, 240, 10)
-    assert stats == {"n_rows": 3, "n_zero": 1, "n_degenerate": 1}
-    assert table.iloc[0][["frame_idx", "x1", "y1", "x2", "y2"]].tolist() == [1, 0, 10, 320, 240]
-
-
-def test_clean_boxes_rejects_frame_outside_video():
-    with pytest.raises(DataCheckError):
-        le2i.clean_boxes("v", np.array([[11, 1, 1, 5, 5]], dtype=float), 320, 240, 10)
-
-
-def test_le2i_row_fall_and_odd():
-    base = {"scene": "home", "part": "02", "number": 31, "fps": 24.0, "n_frames": 240, "width": 320, "height": 180}
-    fall = le2i_row({**base, "kind": "fall", "start": 48, "end": 80})
-    odd = le2i_row({**base, "kind": "odd", "start": None, "end": None})
-    assert fall["video_id"] == "le2i_home02_031" and fall["fall_start_frame"] == 47 and fall["fall_end_frame"] == 79
-    assert fall["duration_s"] == 10.0 and fall["has_event_label"] == 1
-    assert odd["has_event_label"] == 0 and odd["label"] == "" and odd["fall_start_frame"] is None
-
-
-def test_metadata_frame_keeps_integers_and_rejects_duplicates():
-    base = {"scene": "home", "part": "02", "number": 1, "fps": 24.0, "n_frames": 240, "width": 320, "height": 180}
-    row = le2i_row({**base, "kind": "fall", "start": 48, "end": 80})
-    assert str(metadata_frame([row])["fall_start_frame"].dtype) == "Int64"
-    with pytest.raises(ValueError):
-        metadata_frame([row, row])
 
 
 def test_video_ids_and_sequence_id():
@@ -178,7 +102,21 @@ def test_repo_config_has_expected_numbers():
     import yaml
     config = yaml.safe_load(Path("configs/data.yaml").read_text(encoding="utf-8"))
     assert len(config["expect"]["urfd"]["adl_csv_thieu_frame"]) == 18
-    assert sum(v[0] for v in config["expect"]["le2i"]["per_part"].values()) == 130
+    parts = config["expect"]["le2i"]["per_part"].values()
+    assert [sum(v[index] for v in parts) for index in range(3)] == [130, 99, 31]
+    header_mid = config["expect"]["le2i"]["header_mid"]
+    assert header_mid["coffee_room|01|26"] == {"start": 197, "end": 227, "lines": [219, 220], "last_frame": 278}
+    assert header_mid["coffee_room|02|50"] == {"start": 1816, "end": 1852, "lines": [1894, 1895], "last_frame": 1954}
+    assert header_mid["coffee_room|02|52"] == {"start": 87, "end": 113, "lines": [156, 157], "last_frame": 215}
+
+
+def test_read_video_collects_bad_annotation_instead_of_stopping(monkeypatch, tmp_path):
+    bad = tmp_path / "video (1).txt"
+    bad.write_text("\n".join(["48", "80", "197", "1,1,1,1,5,5"]))
+    monkeypatch.setattr(prepare_data.media, "probe_video", lambda path: {"fps": 25.0, "width": 320, "height": 240})
+    monkeypatch.setattr(prepare_data.media, "count_frames", lambda path: 30)
+    video = {"key": "home|01|1", "scene": "home", "part": "01", "number": 1, "path": tmp_path / "a.avi", "annotation": bad}
+    assert "không đủ 6 cột" in prepare_data._read_le2i_video(video)["read_error"]
 
 
 def fake_measure(monkeypatch, n_frames):

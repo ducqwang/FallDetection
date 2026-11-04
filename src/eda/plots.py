@@ -25,7 +25,7 @@ from .window_features import build_window_features  # noqa: E402
 
 DPI = 200
 SURFACE, INK, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
-COLOR_FALL, COLOR_ADL, COLOR_HARD, COLOR_UNKNOWN = "#eb6834", "#2a78d6", "#1baf7a", "#9a9992"
+COLOR_FALL, COLOR_ADL, COLOR_HARD = "#eb6834", "#2a78d6", "#1baf7a"
 DATASET_NAMES = {"urfd": "URFD", "le2i": "Le2i"}
 MAX_POINTS_PER_CLASS = 1500
 MIN_INSIDE_LABEL = 4  # đoạn cột thấp hơn số clip này không đủ chỗ ghi số bên trong
@@ -45,7 +45,7 @@ def _save(figure: plt.Figure, out_path: Path) -> Path:
 
 
 def _labeled(meta: pd.DataFrame) -> pd.DataFrame:
-    """Chỉ giữ video đã xác định lớp (bỏ 3 video ODD của Le2i)."""
+    """Chỉ giữ video has_event_label = 1."""
     return meta[meta["has_event_label"] == 1]
 
 
@@ -78,7 +78,7 @@ def plot_clip_counts(meta: pd.DataFrame, out_path: Path) -> Path:
     axis.set_xticks(positions, names)
     axis.set_ylabel("Số clip")
     axis.grid(axis="x", visible=False)
-    axis.set_title("Số clip theo lớp và nguồn (không tính 3 video chưa xác định của Le2i)", fontsize=10, loc="left")
+    axis.set_title("Số clip theo lớp và nguồn", fontsize=10, loc="left")
     axis.legend()
     return _save(figure, out_path)
 
@@ -129,7 +129,7 @@ def plot_frame_balance(meta: pd.DataFrame, out_path: Path) -> Path:
 
 
 def plot_scene_distribution(meta: pd.DataFrame, out_path: Path) -> Path:
-    """Biểu đồ 4: phân bố bối cảnh/camera; Le2i tách phần 01/02, có cả video chưa xác định."""
+    """Biểu đồ 4: phân bố bối cảnh/camera; Le2i tách phần 01/02."""
     data = meta.copy()
     is_urfd = data["dataset"] == "urfd"
     data["group"] = (data["scene"].str.replace("_", " ").str.capitalize() + " " + data["scene_part"].fillna(""))
@@ -137,9 +137,8 @@ def plot_scene_distribution(meta: pd.DataFrame, out_path: Path) -> Path:
     groups = sorted(data["group"].unique(), key=lambda name: (not name.startswith("URFD"), name))
     figure, axis = plt.subplots(figsize=(7.2, 4))
     bottoms = np.zeros(len(groups))
-    for label, name, color in (("fall", "Té ngã", COLOR_FALL), ("adl", "ADL", COLOR_ADL), (None, "Chưa xác định", COLOR_UNKNOWN)):
-        mask = data["label"].isna() if label is None else data["label"] == label
-        counts = data[mask].groupby("group").size().reindex(groups, fill_value=0).to_numpy()
+    for label, name, color in (("fall", "Té ngã", COLOR_FALL), ("adl", "ADL", COLOR_ADL)):
+        counts = data[data["label"] == label].groupby("group").size().reindex(groups, fill_value=0).to_numpy()
         axis.bar(groups, counts, bottom=bottoms, color=color, width=0.65, label=name)
         _bar_labels(axis, range(len(groups)), bottoms, counts)
         bottoms = bottoms + counts

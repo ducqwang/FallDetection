@@ -36,20 +36,31 @@ def load_urfd(paths: dict, expect: dict) -> tuple[list[dict], pd.DataFrame, list
     return sequences, labels, checks.check_urfd(sequences, expect)
 
 
-def _read_le2i_video(video: dict) -> dict:
-    """Đọc thông số (ffprobe) và annotation của 1 video Le2i.
+def _bbox_of(video: dict) -> tuple[pd.DataFrame, dict]:
+    """Bảng bbox đã chuẩn hóa và thống kê số dòng của 1 video."""
+    if video["boxes"] is None:
+        return pd.DataFrame(columns=GT_BBOX_COLUMNS), {"n_rows": 0, "n_zero": 0, "n_degenerate": 0}
+    return le2i.clean_boxes(video["row"]["video_id"], video["boxes"], video["width"], video["height"], video["n_frames"])
 
-    Video không đọc được trả về khóa read_error để đưa vào báo cáo; main sẽ dừng sau khi in đủ.
+
+def _read_le2i_video(video: dict) -> dict:
+    """Đọc thông số (ffprobe), annotation và bbox của 1 video Le2i.
+
+    Video lỗi (không đọc được hoặc annotation sai định dạng) trả về khóa read_error để main
+    in đủ mọi video lỗi một lần rồi mới dừng.
     """
     try:
         info = media.probe_video(video["path"])
         n_frames = media.count_frames(video["path"])
-    except RuntimeError as error:
+        parsed = {"kind": "no_annot", "start": None, "end": None, "boxes": None, "label_source": ""}
+        if video["annotation"] is not None:
+            parsed = le2i.parse_annotation(video["annotation"])
+        item = {**video, **info, **parsed, "n_frames": n_frames}
+        item["row"] = le2i_row(item)
+        item["bbox_table"], item["bbox_stats"] = _bbox_of(item)
+    except (RuntimeError, DataCheckError) as error:
         return {**video, "read_error": str(error)}
-    parsed = {"kind": "no_annot", "start": None, "end": None, "boxes": None}
-    if video["annotation"] is not None:
-        parsed = le2i.parse_annotation(video["annotation"])
-    return {**video, **info, **parsed, "n_frames": n_frames}
+    return item
 
 
 def load_le2i(paths: dict, expect: dict, workers: int) -> tuple[list[dict], pd.DataFrame, list[str], list[str]]:
@@ -61,14 +72,7 @@ def load_le2i(paths: dict, expect: dict, workers: int) -> tuple[list[dict], pd.D
         results = list(pool.map(_read_le2i_video, [v for v in all_videos if v["scene"] in le2i.USED_SCENES]))
     used = [item for item in results if "read_error" not in item]
     unreadable = [f"{item['key']}: {item['read_error']}" for item in results if "read_error" in item]
-    tables = []
-    for video in used:
-        video["row"] = le2i_row(video)
-        video["bbox_stats"] = {"n_rows": 0, "n_zero": 0, "n_degenerate": 0}
-        if video["boxes"] is not None:
-            table, video["bbox_stats"] = le2i.clean_boxes(video["row"]["video_id"], video["boxes"],
-                                                          video["width"], video["height"], video["n_frames"])
-            tables.append(table)
+    tables = [item["bbox_table"] for item in used if len(item["bbox_table"])]
     boxes = pd.concat(tables, ignore_index=True) if tables else pd.DataFrame(columns=GT_BBOX_COLUMNS)
     return used, boxes, checks.check_le2i(all_videos, used, expect), unreadable
 
@@ -79,8 +83,9 @@ def print_inventory(sequences: list[dict], videos: list[dict], unreadable: list[
     urfd_status = Counter(s["status"] for s in sequences)
     print(f"urfd: {len(sequences)} video ({urfd_classes['fall']} fall, {urfd_classes['adl']} adl) | {dict(urfd_status)}")
     kinds = Counter(v["kind"] for v in videos)
-    print(f"le2i: {len(videos)} video ({kinds['fall']} fall, {kinds['adl']} adl, {kinds['odd']} odd, "
-          f"{kinds['no_annot']} thiếu annotation)")
+    sources = dict(Counter(v["label_source"] for v in videos))
+    print(f"le2i: {len(videos)} video ({kinds['fall']} fall, {kinds['adl']} adl, "
+          f"{kinds['no_annot']} thiếu annotation) | {sources}")
     for key, count in sorted(Counter(f"{v['scene']}|{v['part']}|{v['kind']}" for v in videos).items()):
         print(f"  le2i {key}: {count}")
     print(f"video thiếu annotation: {[v['key'] for v in videos if v['kind'] == 'no_annot']}")
@@ -139,9 +144,8 @@ def convert_videos(meta: pd.DataFrame, sequences: list[dict], videos: list[dict]
 def run_log(meta: pd.DataFrame, n_mismatch: int) -> str:
     """Dòng log số liệu cuối chạy, đếm từ metadata. n_mismatch là số đếm thật từ convert_videos."""
     urfd_rows, le2i_rows = meta[meta["dataset"] == "urfd"], meta[meta["dataset"] == "le2i"]
-    n_odd = int((le2i_rows["has_event_label"] == 0).sum())
     return (f"urfd: {len(urfd_rows)} video ({(urfd_rows['label'] == 'fall').sum()} fall, {(urfd_rows['label'] == 'adl').sum()} adl) | "
-            f"le2i: {len(le2i_rows)} video ({(le2i_rows['label'] == 'fall').sum()} fall, {(le2i_rows['label'] == 'adl').sum()} adl, {n_odd} odd) | "
+            f"le2i: {len(le2i_rows)} video ({(le2i_rows['label'] == 'fall').sum()} fall, {(le2i_rows['label'] == 'adl').sum()} adl) | "
             f"mp4 frame mismatch: {n_mismatch}")
 
 
@@ -187,7 +191,7 @@ def main() -> None:
     meta = metadata_frame([urfd_row(s, cfg["expect"]["urfd"]["fps"]) for s in sequences] + [v["row"] for v in videos])
     n_ok, n_mismatch = convert_videos(meta, sequences, videos, out_root, args.workers, args.skip_existing)
     bbox_stats = {key: sum(v["bbox_stats"][key] for v in videos) for key in ("n_rows", "n_zero", "n_degenerate")}
-    card = build_data_card(meta, sequences, bbox_stats, cfg["dataset_sources"], check_lines,
+    card = build_data_card(meta, sequences, videos, bbox_stats, cfg["dataset_sources"], check_lines,
                            cfg["expect"]["urfd"]["short_after_lying_frames"])
     written = write_outputs(meta, labels, boxes, card, out_root)
     n_skipped = sum(cfg["expect"]["le2i"]["excluded"].values())

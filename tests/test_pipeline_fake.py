@@ -34,7 +34,7 @@ def processed(tmp_path_factory):
     root = tmp_path_factory.mktemp("fake")
     config = fake_kaggle.build(root)
     log = run("-m", "src.data.prepare_data", "--config", str(config), "--workers", "6")
-    assert "urfd: 70 video (30 fall, 40 adl) | le2i: 130 video (96 fall, 31 adl, 3 odd) | mp4 frame mismatch: 0" in log
+    assert "urfd: 70 video (30 fall, 40 adl) | le2i: 130 video (99 fall, 31 adl) | mp4 frame mismatch: 0" in log
     assert "video lỗi không đọc được: []" in log and "video thiếu annotation: []" in log
     run("-m", "src.data.split", "--meta", str(root / "out" / "metadata.csv"), "--out", str(root / "out" / "splits.json"))
     return root / "out"
@@ -52,17 +52,22 @@ def test_metadata_counts_and_excluded_scenes(processed):
     meta = loader.load_metadata(processed)
     urfd, le2i = meta[meta["dataset"] == "urfd"], meta[meta["dataset"] == "le2i"]
     assert urfd["label"].value_counts().to_dict() == {"adl": 40, "fall": 30}
-    assert le2i["label"].value_counts().to_dict() == {"fall": 96, "adl": 31}
-    assert int(le2i["has_event_label"].sum()) == 127 and set(le2i["scene"]) == {"coffee_room", "home"}
+    assert le2i["label"].value_counts().to_dict() == {"fall": 99, "adl": 31}
+    assert int(le2i["has_event_label"].sum()) == 130 and set(le2i["scene"]) == {"coffee_room", "home"}
     assert set(le2i["scene_part"]) == {"01", "02"} and int(urfd["adl_hard_neg"].sum()) == 16
     assert set(le2i["fps"]) == {24.0, 25.0}
+    assert le2i["label_source"].value_counts().to_dict() == {"header_top": 127, "header_mid": 3}
+    assert set(urfd["label_source"]) == {"urfd_csv"}
+    middle = le2i[le2i["label_source"] == "header_mid"]
+    assert sorted(middle["video_id"]) == ["le2i_coffee_room01_026", "le2i_coffee_room02_050", "le2i_coffee_room02_052"]
+    assert middle["fall_start_frame"].tolist() == [9, 9, 9] and middle["fall_end_frame"].tolist() == [19, 19, 19]
 
 
 def test_data_card_has_required_sections(processed):
     card = (processed / "DATA_CARD.md").read_text(encoding="utf-8")
     for text in ("dài đúng 30 frame", "Office và Lecture room", "CSV_THIEU_FRAME", "Kwolek", "Charfi", "shahliza27",
                  "Kiểm tra bắt buộc", "URFD Fall khớp hoàn toàn: 30/30", "URFD dòng CSV không có ảnh: 0",
-                 "Le2i: 130 video (96 fall, 31 adl, 3 odd)", "Le2i kích thước",
+                 "Le2i: 130 video (99 fall, 31 adl)", "Le2i kích thước", "header_mid", "aux_code", "16-17",
                  "danh sách video Le2i negative khó chưa có", "cùng người và cùng cảnh quay", "--split all"):
         assert text in card
 
@@ -92,6 +97,18 @@ def test_unreadable_video_is_reported_then_stops(tmp_path):
     assert done.returncode != 0 and "video lỗi home|01|1" in done.stderr
     assert "video lỗi không đọc được: ['home|01|1" in done.stdout
     assert not (tmp_path / "out" / "metadata.csv").exists()
+
+
+def test_every_bad_annotation_is_reported_at_once(tmp_path):
+    config = fake_kaggle.build(tmp_path)
+    for folder, number in (("Home_01", 1), ("Home_02", 31)):
+        path = next((tmp_path / "input").rglob(f"{folder}/Annotation_files/video ({number}).txt"))
+        path.write_text("48\n80\n197\n1,1,1,1,5,5\n", encoding="utf-8")
+    done = subprocess.run([PYTHON, "-m", "src.data.prepare_data", "--config", str(config)], capture_output=True, text=True)
+    assert done.returncode != 0
+    for key in ("home|01|1", "home|02|31"):
+        assert f"video lỗi {key}" in done.stderr and key in done.stdout
+    assert "không đủ 6 cột: '197'" in done.stderr and not (tmp_path / "out" / "metadata.csv").exists()
 
 
 def test_m1_gt_mode_evaluate_and_eda(processed, tmp_path):

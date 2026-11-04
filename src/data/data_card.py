@@ -2,7 +2,7 @@
 
 Đầu vào: metadata, chuỗi URFD đã đối chiếu, thống kê bbox, cấu hình nguồn dữ liệu.
 Đầu ra: văn bản Markdown; mọi con số lấy từ dữ liệu vừa xử lý, không gõ tay.
-Ví dụ: Path("DATA_CARD.md").write_text(build_data_card(meta, sequences, stats, sources, lines, 15)).
+Ví dụ: Path("DATA_CARD.md").write_text(build_data_card(meta, sequences, videos, stats, sources, lines, 15)).
 """
 from __future__ import annotations
 
@@ -50,8 +50,7 @@ def _sources_section(sources: dict) -> str:
 
 
 def _counts_section(meta: pd.DataFrame) -> str:
-    table = meta.assign(lop=meta["label"].where(meta["label"] != "", "chưa xác định").fillna("chưa xác định"),
-                        phan=meta["scene_part"].fillna("")).groupby(
+    table = meta.assign(lop=meta["label"], phan=meta["scene_part"].fillna("")).groupby(
         ["dataset", "scene", "phan", "fps", "width", "height", "lop"]).size().reset_index(name="so_video")
     lines = ["## Số lượng thực tế", "",
              "| Dataset | Scene | Phần | fps | Kích thước | Lớp | Số video |", "|---|---|---|---|---|---|---|"]
@@ -82,17 +81,27 @@ def _urfd_section(sequences: list[dict], short_frames: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _le2i_section(meta: pd.DataFrame, bbox_stats: dict) -> str:
-    odd = meta[(meta["dataset"] == "le2i") & (meta["has_event_label"] == 0)]["video_id"].tolist()
+def _header_mid_table(videos: list[dict]) -> str:
+    """Bảng các video có cặp khoảng ngã ở giữa file. Frame gốc từ 1, số dòng trong file từ 1."""
+    lines = ["| Video | Frame bắt đầu ngã (gốc) | Frame kết thúc ngã (gốc) | Số dòng của cặp |", "|---|---|---|---|"]
+    for video in (v for v in videos if v["label_source"] == "header_mid"):
+        first, second = video["header_lines"]
+        lines.append(f"| {video['row']['video_id']} | {video['start']} | {video['end']} | {first}-{second} |")
+    return "\n".join(lines) + "\n"
+
+
+def _le2i_section(videos: list[dict], bbox_stats: dict) -> str:
     return ("## Chỗ lệch và lưu ý của Le2i\n\n"
-            f"- Video ODD (không có hai dòng đầu, `has_event_label = 0`, không vào `splits.json`): {', '.join(odd)}. "
-            "Không phân biệt được té ngã hay chủ động nằm.\n"
+            "Các video sau có hai dòng khoảng ngã nằm giữa file thay vì ở đầu file (`label_source = header_mid`). "
+            "Chúng được dùng như mọi video fall khác, `fall_start_frame` và `fall_end_frame` trừ 1 về 0-based:\n\n"
+            + _header_mid_table(videos) + "\n"
+            "- `aux_code` trong `le2i_gt_bbox.csv` là cột 2 gốc của dòng bbox, số nguyên, chưa rõ nghĩa, không dùng ở đâu.\n"
             f"- Dòng bbox đã đọc: {bbox_stats['n_rows']}; bỏ dòng toàn 0: {bbox_stats['n_zero']}; "
             f"bỏ hộp không còn diện tích sau khi clip: {bbox_stats['n_degenerate']}.\n"
             "- bbox vượt khung là hợp lệ (người bị cắt ở mép), đã clip vào khung hình.\n"
             "- `adl_hard_neg = 0` cho toàn bộ Le2i ở giữa kỳ: danh sách video Le2i negative khó chưa có.\n"
             "- Le2i chia theo (nhãn, scene), nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test. "
-            "Kết quả trong cùng bộ Le2i có thể lạc quan. Tập test Le2i rất nhỏ (ước tính khoảng 14 fall và 5 ADL), "
+            "Kết quả trong cùng bộ Le2i có thể lạc quan. Tập test Le2i rất nhỏ (ước tính khoảng 15 fall và 5 ADL), "
             "nên kết quả chính là cross-dataset (`--split all`).\n")
 
 
@@ -100,13 +109,13 @@ def _checks_section(check_lines: list[str]) -> str:
     return "## Kiểm tra bắt buộc\n\n" + "\n".join(f"- {line}" for line in check_lines) + "\n"
 
 
-def build_data_card(meta: pd.DataFrame, sequences: list[dict], bbox_stats: dict, sources: dict,
+def build_data_card(meta: pd.DataFrame, sequences: list[dict], videos: list[dict], bbox_stats: dict, sources: dict,
                     check_lines: list[str], short_frames: int) -> str:
     """Ghép toàn bộ DATA_CARD.md.
 
-    bbox_stats gồm n_rows, n_zero, n_degenerate (tính cả ODD); check_lines từ checks.required_check_lines;
+    videos là video Le2i đã đọc; bbox_stats gồm n_rows, n_zero, n_degenerate; check_lines từ checks.required_check_lines;
     short_frames là ngưỡng số frame sau khi nằm dùng để liệt kê chuỗi Fall ngắn.
     """
     sections = ["# DATA CARD — nhom05-falldet-processed\n", _sources_section(sources), _counts_section(meta),
-                _checks_section(check_lines), _urfd_section(sequences, short_frames), EXCLUSION, _le2i_section(meta, bbox_stats), CONVENTIONS, LICENSES]
+                _checks_section(check_lines), _urfd_section(sequences, short_frames), EXCLUSION, _le2i_section(videos, bbox_stats), CONVENTIONS, LICENSES]
     return "\n".join(sections)

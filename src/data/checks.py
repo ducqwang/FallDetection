@@ -62,8 +62,8 @@ def _check_le2i_parts(used: list[dict], expect: dict) -> list[str]:
     for part_key, numbers in expect["per_part"].items():
         rows = [v for v in used if f"{v['scene']}|{v['part']}" == part_key]
         kinds = Counter(v["kind"] for v in rows)
-        actual = [len(rows), kinds["fall"], kinds["adl"], kinds["odd"]]
-        issues += _differs(f"{part_key} [video, fall, adl, odd]", actual, list(numbers))
+        actual = [len(rows), kinds["fall"], kinds["adl"]]
+        issues += _differs(f"{part_key} [video, fall, adl]", actual, list(numbers))
         small_size = tuple(expect["small_size"])
         n_small = sum(1 for v in rows if (v["width"], v["height"]) == small_size)
         issues += _differs(f"{part_key} số video {small_size}", n_small, expect["n_small_size"].get(part_key, 0))
@@ -75,13 +75,13 @@ def _check_le2i_parts(used: list[dict], expect: dict) -> list[str]:
 
 
 def _check_le2i_bbox(used: list[dict], expect: dict) -> list[str]:
-    """Số dòng bbox (không tính ODD) và độ dài khoảng ngã."""
-    labeled = [v for v in used if v["kind"] != "odd"]
-    n_rows = sum(v["bbox_stats"]["n_rows"] for v in labeled)
-    n_zero = sum(v["bbox_stats"]["n_zero"] for v in labeled)
+    """Số dòng bbox và độ dài khoảng ngã, chỉ trên video header_top vì số mong đợi đo trên nhóm này."""
+    top = [v for v in used if v["label_source"] == "header_top"]
+    n_rows = sum(v["bbox_stats"]["n_rows"] for v in top)
+    n_zero = sum(v["bbox_stats"]["n_zero"] for v in top)
     issues = _differs("số dòng bbox", n_rows, expect["n_bbox_rows"])
     issues += _differs("số dòng bbox toàn 0", n_zero, expect["n_bbox_zero_rows"])
-    lengths = [v["end"] - v["start"] for v in used if v["kind"] == "fall"]
+    lengths = [v["end"] - v["start"] for v in top if v["kind"] == "fall"]
     if not lengths:
         return issues + ["không có video fall nào để đo khoảng ngã"]
     measured = {"min": min(lengths), "median": float(np.median(lengths)), "max": max(lengths)}
@@ -103,7 +103,9 @@ def required_check_lines(sequences: list[dict], videos: list[dict]) -> list[str]
         f"URFD ADL CSV_THIEU_FRAME: {len(lacking)} chuỗi: {', '.join(lacking)}",
         f"URFD dòng CSV không có ảnh: {sum(s['n_csv_without_image'] for s in sequences)}",
         f"URFD chuỗi giữ lại: {len(sequences)}, không loại chuỗi nào",
-        f"Le2i: {len(videos)} video ({kinds['fall']} fall, {kinds['adl']} adl, {kinds['odd']} odd)",
+        f"Le2i: {len(videos)} video ({kinds['fall']} fall, {kinds['adl']} adl)",
+        f"Le2i has_event_label = 1: {sum(v['row']['has_event_label'] for v in videos)}/{len(videos)}",
+        f"Le2i nguồn nhãn: {dict(sorted(Counter(v['label_source'] for v in videos).items()))}",
         f"Le2i fps: {dict(sorted(fps_counts.items()))}",
         f"Le2i kích thước: {dict(sorted(size_counts.items()))}",
     ]
@@ -118,6 +120,7 @@ def check_le2i(all_videos: list[dict], used: list[dict], expect: dict) -> list[s
         issues += _differs(f"{scene} số annotation", sum(v["annotation"] is not None for v in rows), 0)
     issues += _differs("video thiếu annotation trong phạm vi dùng",
                        [v["key"] for v in used if v["annotation"] is None], [])
-    issues += _differs("video ODD", sorted(v["key"] for v in used if v["kind"] == "odd"),
-                       sorted(expect["odd_keys"]))
+    measured = {v["key"]: {"start": v["start"], "end": v["end"], "lines": list(v["header_lines"]),
+                           "last_frame": v["last_frame"]} for v in used if v["label_source"] == "header_mid"}
+    issues += _differs("video header_mid", measured, dict(expect["header_mid"]))
     return issues + _check_le2i_parts(used, expect) + _check_le2i_bbox(used, expect)
