@@ -15,7 +15,8 @@ from conftest import meta_frame, meta_row
 from src.data.common import PREDICTION_COLUMNS
 from src.eval.event_metrics import evaluate
 from src.models import m1_rule
-from src.models.m1_features import contiguous_track, run_length_seconds, seconds_to_frames, track_signals
+from src.models.m1_features import (contiguous_track, run_length_seconds, seconds_to_frames, split_at_long_gaps,
+                                    track_signals)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import tune_m1  # noqa: E402
@@ -106,6 +107,66 @@ def test_still_score_needs_time_after_posture_change():
     signals = pd.DataFrame({"aspect": [0.5] * 30 + [2.0] * 30, "vy": 0.0, "ay": 0.0, "speed": 0.0})
     scores = m1_rule.score_signals(signals, 30.0, rules, weights)
     assert scores.iloc[29] == 0.0 and scores.iloc[37] == pytest.approx(8 / 15, abs=1e-9) and scores.iloc[-1] == 1.0
+
+
+def test_aspect_is_width_over_height_and_thresholds_go_up():
+    signals = track_signals(fall_track(), 30.0, 0.2, 1.5)
+    assert signals["aspect"].iloc[30] < 1.0 < signals["aspect"].iloc[-1]
+    assert CONFIG["rules"]["ar_upright"] < CONFIG["rules"]["ar_lying"]
+
+
+def test_posture_score_high_when_person_has_just_lain_down():
+    """Đứng 2 s, nằm xuống trong 1 s, nằm yên 2 s."""
+    signals = track_signals(fall_track(stand_s=2, fall_s=1, lie_s=2), 30.0, 0.2, 1.5)
+    just_lying = int(np.argmax(signals["aspect"].to_numpy() >= CONFIG["rules"]["ar_lying"]))
+    scores = m1_rule.posture_score(signals, 30.0, CONFIG["rules"])
+    assert 60 <= just_lying <= 90 and scores.iloc[just_lying] > 0.5
+    assert scores.iloc[:60].max() == 0.0 and scores.iloc[-1] == 0.0
+
+
+def test_ramp_rejects_low_not_below_high():
+    with pytest.raises(ValueError):
+        m1_rule.ramp(pd.Series([1.0]), 1.0, 1.0)
+
+
+def test_every_grid_combination_keeps_low_below_high():
+    grid, rules = CONFIG["grid"], CONFIG["rules"]
+    assert max(grid["ar_upright"]) < min(grid["ar_lying"])
+    assert rules["vy_min"] < min(grid["vy_full"])
+
+
+def moving_track(n_frames=120, px_per_frame=1.0):
+    """Người đứng đi xuống đều, bbox không đổi."""
+    frames = np.arange(n_frames)
+    return pd.DataFrame({"video_id": "v", "frame_idx": frames, "track_id": 1, "x1": 100.0, "x2": 160.0,
+                         "y1": 40.0 + frames * px_per_frame, "y2": 160.0 + frames * px_per_frame, "det_conf": 0.9})
+
+
+def test_ten_frame_gap_adds_no_fake_velocity_or_acceleration():
+    track = moving_track()
+    gapped = track[~track["frame_idx"].between(50, 59)]
+    full_signals = track_signals(track, 30.0, 0.2, 1.5)
+    gap_signals = track_signals(gapped, 30.0, 0.2, 1.5)
+    assert len(gap_signals) == len(full_signals)
+    for column in ("vy", "ay"):
+        assert gap_signals[column].to_numpy() == pytest.approx(full_signals[column].to_numpy(), abs=1e-9)
+
+
+def test_short_gap_stays_in_one_segment_long_gap_splits():
+    track = moving_track()
+    assert len(split_at_long_gaps(track[~track["frame_idx"].between(50, 59)], 30.0, 0.5)) == 1
+    assert len(split_at_long_gaps(track[~track["frame_idx"].between(50, 64)], 30.0, 0.5)) == 1  # đúng 0.5 s
+    assert len(split_at_long_gaps(track[~track["frame_idx"].between(50, 65)], 30.0, 0.5)) == 2
+
+
+def test_long_gap_is_not_interpolated_and_resets_state():
+    """Mất track 3 s rồi thấy người đã nằm: không có frame bịa, không được tính là vừa ngã."""
+    standing, lying = moving_track(60, 0.0), moving_track(60, 0.0)
+    lying = lying.assign(frame_idx=lying["frame_idx"] + 150, x2=220.0, y1=120.0, y2=170.0)
+    meta = pd.DataFrame({"video_id": ["v"], "fps": [30.0]})
+    table = m1_rule.predict(pd.concat([standing, lying]), meta, CONFIG)
+    assert not table["frame_idx"].between(60, 149).any() and len(table) == 120
+    assert table["fall_score"].max() < THR
 
 
 def test_lost_frames_are_interpolated():

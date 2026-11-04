@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ..data.labels import select_main_track, window_label
-from ..models.m1_features import seconds_to_frames, track_signals
+from ..models.m1_features import seconds_to_frames, split_at_long_gaps, track_signals
 
 FEATURE_NAMES = ["aspect_mean", "aspect_std", "aspect_min", "aspect_max", "vy_max", "vy_mean",
                  "ay_max", "speed_mean", "still_ratio"]
@@ -30,15 +30,17 @@ def video_windows(track: pd.DataFrame, row: pd.Series, window_s: float, stride_s
     """Cắt 1 track thành các cửa sổ, gán nhãn window_label.
 
     window_s, stride_s tính bằng giây, đổi sang frame bằng fps của video; frame_idx 0-based.
+    Cửa sổ không đi qua khoảng trống dài hơn signal_params["max_gap_s"].
     """
     fps = float(row["fps"])
     window, stride = seconds_to_frames(window_s, fps), seconds_to_frames(stride_s, fps)
-    signals = track_signals(track, fps, signal_params["smooth_s"], signal_params["reference_s"])
     vectors, labels = [], []
-    for begin in range(0, len(signals) - window + 1, stride):
-        part = signals.iloc[begin:begin + window]
-        vectors.append(window_vector(part, still_speed))
-        labels.append(window_label(row, int(part.index[0]), int(part.index[-1])))
+    for segment in split_at_long_gaps(track, fps, signal_params["max_gap_s"]):
+        signals = track_signals(segment, fps, signal_params["smooth_s"], signal_params["reference_s"])
+        for begin in range(0, len(signals) - window + 1, stride):
+            part = signals.iloc[begin:begin + window]
+            vectors.append(window_vector(part, still_speed))
+            labels.append(window_label(row, int(part.index[0]), int(part.index[-1])))
     return vectors, labels
 
 

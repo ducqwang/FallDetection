@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 
 from ..data.common import METADATA_DTYPES, PREDICTION_COLUMNS, TRACK_COLUMNS
-from .m1_features import run_length_seconds, seconds_to_frames, track_signals
+from .m1_features import run_length_seconds, seconds_to_frames, split_at_long_gaps, track_signals
 
 GT_TRACK_ID = 1
 GT_DET_CONF = 1.0
@@ -38,9 +38,26 @@ def load_config(path: str | Path, tuned_path: str | Path | None = None) -> dict:
 def ramp(values: pd.Series, low: float, high: float) -> pd.Series:
     """Đưa giá trị về [0, 1]: dưới low là 0, từ high trở lên là 1, ở giữa tuyến tính.
 
+    Giả định low < high: thang đi lên từ low tới high. Vi phạm thì raise ValueError, vì low = high
+    gây chia cho 0 và low > high đảo ngược ý nghĩa của điểm.
     Điểm liên tục thay vì đúng/sai để vẽ được đường cong PR/ROC.
     """
+    if low >= high:
+        raise ValueError(f"ramp cần low < high, nhận low={low}, high={high}")
     return ((values - low) / (high - low)).clip(0.0, 1.0)
+
+
+def posture_score(signals: pd.DataFrame, fps: float, rules: dict) -> pd.Series:
+    """Điểm đổi tư thế theo frame: đang nằm VÀ trong window_s giây gần nhất đã từng đứng.
+
+    Cần aspect = rộng/cao (đứng nhỏ, nằm lớn) và ar_upright < ar_lying; min trên cửa sổ tìm lúc
+    người còn đứng. Index là frame_idx 0-based; fps: frame/giây; window_s: giây.
+    """
+    window = seconds_to_frames(rules["window_s"], fps) + 1
+    lying = ramp(signals["aspect"], rules["ar_upright"], rules["ar_lying"])
+    upright_before = 1.0 - ramp(signals["aspect"].rolling(window, min_periods=1).min(),
+                                rules["ar_upright"], rules["ar_lying"])
+    return lying * upright_before
 
 
 def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict) -> pd.Series:
@@ -58,13 +75,10 @@ def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict)
     speed_score = ramp(signals["vy"].rolling(window, min_periods=1).max(), rules["vy_min"], rules["vy_full"])
     accel_score = ramp(signals["ay"].rolling(window, min_periods=1).max(), rules["ay_min"], rules["ay_full"])
     lying = ramp(signals["aspect"], rules["ar_upright"], rules["ar_lying"])
-    upright_before = 1.0 - ramp(signals["aspect"].rolling(window, min_periods=1).min(),
-                                rules["ar_upright"], rules["ar_lying"])
-    posture_score = lying * upright_before
     still_time = run_length_seconds((signals["speed"] < rules["still_speed"]) & (lying > 0), fps)
     still_score = (still_time / rules["immobile_s"]).clip(upper=1.0)
     return (weights["speed"] * speed_score + weights["accel"] * accel_score
-            + weights["posture"] * posture_score + weights["still"] * still_score)
+            + weights["posture"] * posture_score(signals, fps, rules) + weights["still"] * still_score)
 
 
 def gt_boxes_as_tracks(gt_boxes: pd.DataFrame) -> pd.DataFrame:
@@ -75,6 +89,7 @@ def gt_boxes_as_tracks(gt_boxes: pd.DataFrame) -> pd.DataFrame:
 def signals_by_track(tracks: pd.DataFrame, meta: pd.DataFrame, config: dict) -> list[dict]:
     """Tính sẵn tín hiệu từng track để tune nhanh.
 
+    Track có khoảng trống dài hơn max_gap_s được tách đoạn, mỗi đoạn 1 phần tử cùng track_id.
     Trả về list dict: video_id, track_id, fps, signals. video_id lạ thì raise.
     """
     fps_of = meta.set_index("video_id")["fps"].to_dict()
@@ -85,8 +100,9 @@ def signals_by_track(tracks: pd.DataFrame, meta: pd.DataFrame, config: dict) -> 
     params = config["signals"]
     for (video_id, track_id), track in tracks.groupby(["video_id", "track_id"], sort=True):
         fps = float(fps_of[video_id])
-        items.append({"video_id": video_id, "track_id": int(track_id), "fps": fps,
-                      "signals": track_signals(track, fps, params["smooth_s"], params["reference_s"])})
+        for segment in split_at_long_gaps(track, fps, params["max_gap_s"]):
+            items.append({"video_id": video_id, "track_id": int(track_id), "fps": fps,
+                          "signals": track_signals(segment, fps, params["smooth_s"], params["reference_s"])})
     return items
 
 

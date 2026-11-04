@@ -30,8 +30,24 @@ def run_length_seconds(active: pd.Series, fps: float) -> pd.Series:
     return active.astype(int).groupby(groups).cumsum() / fps
 
 
+def split_at_long_gaps(track: pd.DataFrame, fps: float, max_gap_s: float) -> list[pd.DataFrame]:
+    """Tách track thành các đoạn tại khoảng trống dài hơn max_gap_s giây.
+
+    Mỗi đoạn được tính tín hiệu riêng, nên trạng thái (cửa sổ trượt, chiều cao chuẩn, thời gian
+    bất động) không đi qua khoảng trống dài. Không nội suy khoảng trống dài vì sẽ bịa quỹ đạo.
+    Trả về list bảng con theo thứ tự frame_idx (0-based).
+    """
+    ordered = track.sort_values("frame_idx", kind="stable")
+    missing_frames = ordered["frame_idx"].diff().fillna(1) - 1
+    segment = (missing_frames / fps > max_gap_s).cumsum()
+    return [part for _, part in ordered.groupby(segment, sort=True)]
+
+
 def contiguous_track(track: pd.DataFrame) -> pd.DataFrame:
     """Sắp theo frame và nội suy tuyến tính các frame track bị mất giữa chừng.
+
+    Nhờ bảng trả về liên tục theo frame, mọi cửa sổ rolling tính theo frame thật, không theo số dòng.
+    Chỉ gọi trên 1 đoạn của split_at_long_gaps để khoảng trống dài không bị nội suy.
 
     Trả về bảng index frame_idx (0-based) liên tục từ frame đầu đến frame cuối của track.
     """
@@ -43,10 +59,10 @@ def contiguous_track(track: pd.DataFrame) -> pd.DataFrame:
 
 
 def track_signals(track: pd.DataFrame, fps: float, smooth_s: float, reference_s: float) -> pd.DataFrame:
-    """Tính tín hiệu cho 1 track.
+    """Tính tín hiệu cho 1 đoạn track (kết quả của split_at_long_gaps).
 
     fps: frame/giây; smooth_s, reference_s: giây. Trả về bảng index frame_idx (0-based) với các cột:
-    aspect (w/h); vy (chiều cao/giây); ay (chiều cao/giây²); speed (tốc độ tâm, chiều cao/giây).
+    aspect (rộng/cao: đứng nhỏ, nằm lớn); vy (chiều cao/giây); ay (chiều cao/giây²); speed (tốc độ tâm, chiều cao/giây).
     Chiều cao chuẩn là chiều cao lớn nhất trong reference_s giây gần nhất: bbox thấp đi khi ngã,
     chia cho chiều cao hiện tại sẽ làm vận tốc bị thổi phồng lúc người đã nằm.
     """

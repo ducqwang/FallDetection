@@ -4,6 +4,7 @@
 signals:
   smooth_s: 0.2         # cửa sổ trung bình trượt
   reference_s: 1.5      # chiều cao chuẩn = chiều cao lớn nhất trong khoảng này trở về trước
+  max_gap_s: 0.5        # khoảng trống track dài tới mức này thì nội suy, dài hơn thì tách đoạn và reset trạng thái
 rules:
   window_s: 1.0         # N: khoảng tìm đổi tư thế và vận tốc đột ngột
   ar_upright: 0.8       # w/h từ mức này trở xuống là đứng
@@ -29,7 +30,7 @@ alarm:
 # Lưới tìm kiếm cho scripts/tune_m1.py, chỉ chạy trên tập val.
 grid:
   thr: [0.4, 0.5, 0.6, 0.7, 0.8]
-  ar_upright: [0.7, 0.8, 1.0]
+  ar_upright: [0.7, 0.8, 0.9]   # luôn nhỏ hơn mọi giá trị ar_lying
   ar_lying: [1.0, 1.2, 1.5]
   vy_full: [0.5, 0.8, 1.2]
   window_s: [0.75, 1.0, 1.5]
