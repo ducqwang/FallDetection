@@ -28,6 +28,7 @@ SURFACE, INK, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 COLOR_FALL, COLOR_ADL, COLOR_HARD, COLOR_UNKNOWN = "#eb6834", "#2a78d6", "#1baf7a", "#9a9992"
 DATASET_NAMES = {"urfd": "URFD", "le2i": "Le2i"}
 MAX_POINTS_PER_CLASS = 1500
+MIN_INSIDE_LABEL = 4  # đoạn cột thấp hơn số clip này không đủ chỗ ghi số bên trong
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "figure.facecolor": SURFACE,
                      "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE, "text.color": INK,
                      "axes.edgecolor": GRID, "axes.labelcolor": MUTED, "xtick.color": MUTED, "ytick.color": MUTED,
@@ -49,10 +50,12 @@ def _labeled(meta: pd.DataFrame) -> pd.DataFrame:
 
 
 def _bar_labels(axis: plt.Axes, positions, bottoms, heights) -> None:
-    """Ghi số vào giữa từng đoạn cột, bỏ qua đoạn bằng 0."""
+    """Ghi số vào giữa từng đoạn cột; đoạn quá mỏng ghi ngay trên đoạn, bỏ qua đoạn bằng 0."""
     for position, bottom, height in zip(positions, bottoms, heights):
-        if height > 0:
+        if height >= MIN_INSIDE_LABEL:
             axis.text(position, bottom + height / 2, str(int(height)), ha="center", va="center", color="white", fontsize=9)
+        elif height > 0:
+            axis.text(position, bottom + height, str(int(height)), ha="center", va="bottom", color=INK, fontsize=9)
 
 
 def plot_clip_counts(meta: pd.DataFrame, out_path: Path) -> Path:
@@ -117,6 +120,7 @@ def plot_frame_balance(meta: pd.DataFrame, out_path: Path) -> Path:
         axis.barh(row_index, fall / total * 100, left=normal / total * 100, color=COLOR_FALL, height=0.55, label="Frame té ngã" if row_index == 0 else None)
         axis.text(50, row_index, f"té ngã {fall / total * 100:.1f}% ({int(fall)}/{int(total)} frame)", color="white", ha="center", va="center", fontsize=9)
     axis.set_yticks(range(len(DATASET_NAMES)), DATASET_NAMES.values())
+    axis.invert_yaxis()
     axis.set_xlim(0, 100)
     axis.set_xlabel("Tỷ lệ frame (%)")
     axis.grid(axis="y", visible=False)
