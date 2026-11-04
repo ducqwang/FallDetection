@@ -60,6 +60,8 @@ python -m src.models.m1_rule --tracks tracks.parquet --meta $OUT/metadata.csv --
 python scripts/evaluate.py --pred predictions.csv --meta $OUT/metadata.csv --split test --dataset urfd --tuned reports/results/m1_tuned_urfd.yaml
 ```
 
+Sau khi chạy, commit `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `dataset_index/`, cùng `reports/figures/*.png` và `reports/results/*`. Không commit video, trọng số hay `tracks.parquet`.
+
 Chạy test: `python -m pytest tests -q` (phần end-to-end cần ffmpeg và ffprobe).
 
 **Cross-dataset** không cần file chia riêng. Protocol A: train trên URFD, test toàn bộ Le2i (127 video có nhãn). Protocol B: train trên Le2i, test toàn bộ URFD (70 video). Dùng `--split all` trong `scripts/evaluate.py`.

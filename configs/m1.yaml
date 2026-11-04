@@ -12,7 +12,7 @@ rules:
   vy_full: 0.8          # vận tốc dọc: từ mức này điểm bằng 1
   ay_min: 0.5           # gia tốc dọc: dưới mức này điểm bằng 0
   ay_full: 3.0          # gia tốc dọc: từ mức này điểm bằng 1
-  immobile_s: 0.5       # bất động sau ngã phải NGẮN: 8/30 Fall URFD chỉ còn dưới 0.5 s sau khi nằm
+  immobile_s: 0.5       # thời gian bất động để đạt đủ điểm, phải NGẮN: 8/30 Fall URFD chỉ còn dưới 0.5 s sau khi nằm
   still_speed: 0.15     # tốc độ tâm dưới mức này là ít chuyển động
   min_track_s: 0.5      # track ngắn hơn thì điểm bằng 0
 # Tổng trọng số phải bằng 1. Bất động chỉ là thành phần cộng điểm, không bắt buộc:

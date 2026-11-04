@@ -2,7 +2,7 @@
 
 Đầu vào: metadata, chuỗi URFD đã đối chiếu, thống kê bbox, cấu hình nguồn dữ liệu.
 Đầu ra: văn bản Markdown; mọi con số lấy từ dữ liệu vừa xử lý, không gõ tay.
-Ví dụ: Path("DATA_CARD.md").write_text(build_data_card(meta, sequences, stats, sources)).
+Ví dụ: Path("DATA_CARD.md").write_text(build_data_card(meta, sequences, stats, sources, lines, 15)).
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def _counts_section(meta: pd.DataFrame) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _urfd_section(sequences: list[dict]) -> str:
+def _urfd_section(sequences: list[dict], short_frames: int) -> str:
     falls_ok = sum(1 for s in sequences if s["label"] == "fall" and s["status"] == "OK")
     adl_ok = sum(1 for s in sequences if s["label"] == "adl" and s["status"] == "OK")
     lacking = [s for s in sequences if s["status"] == "CSV_THIEU_FRAME"]
@@ -76,8 +76,8 @@ def _urfd_section(sequences: list[dict]) -> str:
         lines.append(f"| {seq['seq']} | {seq['n_images']} | {seq['n_csv_rows']} | {seq['miss_head']} "
                      f"| {seq['gap_mid']} | {seq['miss_tail']} |")
     short = [f"{s['seq']} ({s['n_label1']})" for s in sequences
-             if s["label"] == "fall" and s["n_label1"] < 15]
-    lines += ["", f"Fall còn dưới 15 frame sau khi nằm ({len(short)} chuỗi, số frame trong ngoặc): "
+             if s["label"] == "fall" and s["n_label1"] < short_frames]
+    lines += ["", f"Fall còn dưới {short_frames} frame sau khi nằm ({len(short)} chuỗi, số frame trong ngoặc): "
               + ", ".join(short) + "."]
     return "\n".join(lines) + "\n"
 
@@ -92,8 +92,17 @@ def _le2i_section(meta: pd.DataFrame, bbox_stats: dict) -> str:
             "- bbox vượt khung là hợp lệ (người bị cắt ở mép), đã clip vào khung hình.\n")
 
 
-def build_data_card(meta: pd.DataFrame, sequences: list[dict], bbox_stats: dict, sources: dict) -> str:
-    """Ghép toàn bộ DATA_CARD.md. bbox_stats gồm n_rows, n_zero, n_degenerate (tính cả ODD)."""
+def _checks_section(check_lines: list[str]) -> str:
+    return "## Kiểm tra bắt buộc\n\n" + "\n".join(f"- {line}" for line in check_lines) + "\n"
+
+
+def build_data_card(meta: pd.DataFrame, sequences: list[dict], bbox_stats: dict, sources: dict,
+                    check_lines: list[str], short_frames: int) -> str:
+    """Ghép toàn bộ DATA_CARD.md.
+
+    bbox_stats gồm n_rows, n_zero, n_degenerate (tính cả ODD); check_lines từ checks.required_check_lines;
+    short_frames là ngưỡng số frame sau khi nằm dùng để liệt kê chuỗi Fall ngắn.
+    """
     sections = ["# DATA CARD — nhom05-falldet-processed\n", _sources_section(sources), _counts_section(meta),
-                _urfd_section(sequences), EXCLUSION, _le2i_section(meta, bbox_stats), CONVENTIONS, LICENSES]
+                _checks_section(check_lines), _urfd_section(sequences, short_frames), EXCLUSION, _le2i_section(meta, bbox_stats), CONVENTIONS, LICENSES]
     return "\n".join(sections)

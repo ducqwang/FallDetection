@@ -31,7 +31,7 @@ def select_videos(meta: pd.DataFrame, splits_path: Path, dataset: str, split: st
     return labeled[labeled["video_id"].isin(splits[dataset][split])]
 
 
-def format_value(value) -> str:
+def format_value(value: object) -> str:
     """Định dạng 1 ô: None thành 'n/a', số thực 3 chữ số."""
     if value is None:
         return "n/a"

@@ -13,7 +13,7 @@ import yaml
 
 from ..utils import set_seed
 
-PACKAGES = ("torch", "ultralytics", "opencv-python", "opencv-python-headless")
+PACKAGES = ("torch", "ultralytics")
 
 
 def _package_version(name: str) -> str:
@@ -24,12 +24,22 @@ def _package_version(name: str) -> str:
         return "chưa cài"
 
 
+def _opencv_version() -> str:
+    """Version OpenCV đang import được; Kaggle có thể dùng bản contrib hoặc headless."""
+    try:
+        import cv2
+    except ImportError:
+        return "chưa cài"
+    return cv2.__version__
+
+
 def setup_notebook(config_path: str | Path, seed: int = 42) -> None:
     """Cố định seed (random, numpy, torch) rồi in version môi trường và dataset."""
     set_seed(seed)
     print(f"seed = {seed} | Python {platform.python_version()}")
     for package in PACKAGES:
         print(f"{package}: {_package_version(package)}")
+    print(f"opencv: {_opencv_version()}")
     config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
     for name, source in config["dataset_sources"].items():
         print(f"dataset {name}: {source['url']} | version: {source.get('version') or 'chưa điền'}")

@@ -33,7 +33,9 @@ def run(*args):
 def processed(tmp_path_factory):
     root = tmp_path_factory.mktemp("fake")
     config = fake_kaggle.build(root)
-    run("-m", "src.data.prepare_data", "--config", str(config), "--workers", "6")
+    log = run("-m", "src.data.prepare_data", "--config", str(config), "--workers", "6")
+    assert "urfd: 70 video (30 fall, 40 adl) | le2i: 130 video (96 fall, 31 adl, 3 odd) | mp4 frame mismatch: 0" in log
+    assert "video lỗi không đọc được: []" in log and "video thiếu annotation: []" in log
     run("-m", "src.data.split", "--meta", str(root / "out" / "metadata.csv"), "--out", str(root / "out" / "splits.json"))
     return root / "out"
 
@@ -58,7 +60,9 @@ def test_metadata_counts_and_excluded_scenes(processed):
 
 def test_data_card_has_required_sections(processed):
     card = (processed / "DATA_CARD.md").read_text(encoding="utf-8")
-    for text in ("dài đúng 30 frame", "Office và Lecture room", "CSV_THIEU_FRAME", "Kwolek", "Charfi", "shahliza27"):
+    for text in ("dài đúng 30 frame", "Office và Lecture room", "CSV_THIEU_FRAME", "Kwolek", "Charfi", "shahliza27",
+                 "Kiểm tra bắt buộc", "URFD Fall khớp hoàn toàn: 30/30", "URFD dòng CSV không có ảnh: 0",
+                 "Le2i: 130 video (96 fall, 31 adl, 3 odd)", "Le2i kích thước"):
         assert text in card
 
 
@@ -77,6 +81,16 @@ def test_mismatch_stops_before_conversion(tmp_path):
     done = subprocess.run([PYTHON, "-m", "src.data.prepare_data", "--config", str(config)], capture_output=True, text=True)
     assert done.returncode != 0 and DataCheckError.__name__ in done.stderr and "số ADL negative khó" in done.stderr
     assert not (tmp_path / "out" / "videos").exists()
+
+
+def test_unreadable_video_is_reported_then_stops(tmp_path):
+    config = fake_kaggle.build(tmp_path)
+    video = next((tmp_path / "input").rglob("Home_01/Videos/video (1).avi"))
+    video.write_bytes(b"not a video")
+    done = subprocess.run([PYTHON, "-m", "src.data.prepare_data", "--config", str(config)], capture_output=True, text=True)
+    assert done.returncode != 0 and "video lỗi home|01|1" in done.stderr
+    assert "video lỗi không đọc được: ['home|01|1" in done.stdout
+    assert not (tmp_path / "out" / "metadata.csv").exists()
 
 
 def test_m1_gt_mode_evaluate_and_eda(processed, tmp_path):

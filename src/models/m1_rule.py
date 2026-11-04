@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 
 from ..data.common import METADATA_DTYPES, PREDICTION_COLUMNS, TRACK_COLUMNS
-from .m1_features import seconds_to_frames, track_signals
+from .m1_features import run_length_seconds, seconds_to_frames, track_signals
 
 GT_TRACK_ID = 1
 GT_DET_CONF = 1.0
@@ -51,7 +51,8 @@ def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict)
     speed: vận tốc dọc lớn nhất trong window_s giây gần nhất.
     accel: gia tốc dọc lớn nhất trong cùng khoảng.
     posture: đang nằm VÀ trong window_s giây gần nhất đã từng đứng.
-    still: đang nằm VÀ tỷ lệ frame ít chuyển động trong immobile_s giây gần nhất.
+    still: thời gian bất động (giây) sau khi tư thế đổi, đạt đủ điểm khi tới immobile_s.
+    still chỉ cộng điểm, không bắt buộc, vì 8/30 Fall URFD còn dưới 0.5 s sau khi nằm.
     """
     window = seconds_to_frames(rules["window_s"], fps) + 1
     speed_score = ramp(signals["vy"].rolling(window, min_periods=1).max(), rules["vy_min"], rules["vy_full"])
@@ -60,8 +61,8 @@ def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict)
     upright_before = 1.0 - ramp(signals["aspect"].rolling(window, min_periods=1).min(),
                                 rules["ar_upright"], rules["ar_lying"])
     posture_score = lying * upright_before
-    calm = (signals["speed"] < rules["still_speed"]).astype(float)
-    still_score = lying * calm.rolling(seconds_to_frames(rules["immobile_s"], fps), min_periods=1).mean()
+    still_time = run_length_seconds((signals["speed"] < rules["still_speed"]) & (lying > 0), fps)
+    still_score = (still_time / rules["immobile_s"]).clip(upper=1.0)
     return (weights["speed"] * speed_score + weights["accel"] * accel_score
             + weights["posture"] * posture_score + weights["still"] * still_score)
 
@@ -124,8 +125,9 @@ def main() -> None:
     predictions = predict(tracks, meta, load_config(args.config, args.tuned))
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     predictions.to_csv(args.out, index=False)
-    print(f"TÓM TẮT | video có track: {predictions['video_id'].nunique()} | track: {tracks[['video_id', 'track_id']].drop_duplicates().shape[0]} "
-          f"| dòng: {len(predictions)} | bỏ qua: 0 | Đã ghi: {args.out}")
+    n_covered = predictions["video_id"].nunique()
+    print(f"TÓM TẮT | video có track: {n_covered} | track: {tracks[['video_id', 'track_id']].drop_duplicates().shape[0]} "
+          f"| dòng: {len(predictions)} | bỏ qua: {len(meta) - n_covered} (video không có track) | Đã ghi: {args.out}")
 
 
 if __name__ == "__main__":

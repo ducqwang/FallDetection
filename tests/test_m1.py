@@ -15,7 +15,7 @@ from conftest import meta_frame, meta_row
 from src.data.common import PREDICTION_COLUMNS
 from src.eval.event_metrics import evaluate
 from src.models import m1_rule
-from src.models.m1_features import contiguous_track, seconds_to_frames, track_signals
+from src.models.m1_features import contiguous_track, run_length_seconds, seconds_to_frames, track_signals
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 import tune_m1  # noqa: E402
@@ -94,6 +94,18 @@ def test_works_at_each_dataset_fps(fps):
 def test_seconds_are_converted_with_video_fps():
     assert seconds_to_frames(0.5, 30) == 15 and seconds_to_frames(0.5, 24) == 12
     assert seconds_to_frames(0.001, 25) == 1
+
+
+def test_run_length_counts_seconds_and_resets():
+    active = pd.Series([True, True, False, True, True, True])
+    assert run_length_seconds(active, 2.0).tolist() == [0.5, 1.0, 0.0, 0.5, 1.0, 1.5]
+
+
+def test_still_score_needs_time_after_posture_change():
+    rules, weights = CONFIG["rules"], {"speed": 0.0, "accel": 0.0, "posture": 0.0, "still": 1.0}
+    signals = pd.DataFrame({"aspect": [0.5] * 30 + [2.0] * 30, "vy": 0.0, "ay": 0.0, "speed": 0.0})
+    scores = m1_rule.score_signals(signals, 30.0, rules, weights)
+    assert scores.iloc[29] == 0.0 and scores.iloc[37] == pytest.approx(8 / 15, abs=1e-9) and scores.iloc[-1] == 1.0
 
 
 def test_lost_frames_are_interpolated():

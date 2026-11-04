@@ -81,8 +81,11 @@ def scan_sequences(root: Path) -> list[dict]:
         pairs = sorted(((frame_number(p), p) for p in images), key=lambda item: item[0])
         if not pairs:
             raise DataCheckError(f"{folder.name}: không có ảnh")
-        with Image.open(pairs[0][1]) as image:
-            width, height = image.size
+        try:
+            with Image.open(pairs[0][1]) as image:
+                width, height = image.size
+        except OSError as error:
+            raise DataCheckError(f"{folder.name}: không đọc được ảnh {pairs[0][1].name}: {error}") from error
         sequences.append({
             "seq": f"{match.group(1).lower()}-{int(match.group(2)):02d}",
             "camera": match.group(3).lower(), "label": match.group(1).lower(),

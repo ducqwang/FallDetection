@@ -1,18 +1,18 @@
 # HANDOFF TV1
 Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: db62872  |  Cập nhật: 2026-11-04
 
-> Chưa có lần nào chạy trên Kaggle. "CSV thật" nghĩa là 2 file nhãn URFD thật, còn ảnh và video vẫn là giả.
+> Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Mọi output cần dataset được liệt kê ở mục "Việc còn tồn đọng".
 
 ## Trạng thái từng Việc
 | Việc | Trạng thái | Đã chạy trên dữ liệu thật? | Ghi chú |
 |---|---|---|---|
-| 0. Notebook kiểm tra | xong | không cần chạy | Đã thêm 2 notebook, giữ nguyên logic, xóa output |
-| 1. prepare_data | một phần | chỉ CSV nhãn URFD thật; ảnh và video giả | Chưa chạy trên Kaggle, chưa có `metadata.csv` thật |
-| 2. split | một phần | chỉ dữ liệu giả có phân bố đúng | Test chống rò rỉ pass; chưa có `splits.json` thật |
-| 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Chưa có hình minh họa augmentation thật |
-| 4. EDA | một phần | chỉ dữ liệu giả | Hình trong `reports/figures/` chưa có; hình giả không commit |
-| 5. M1 | một phần | chỉ dữ liệu giả | Ngưỡng trong `configs/m1.yaml` chưa tune trên dữ liệu thật |
-| 6. Bộ đánh giá | xong phần code | chỉ dữ liệu giả | Unit test pass; chưa có bảng kết quả thật |
+| 0. Notebook kiểm tra | xong | chưa | Đã thêm 2 notebook, giữ nguyên source, xóa output. Agent không chạy lại; bản gốc đã được TV1 chạy trên Kaggle |
+| 1. prepare_data | một phần | chỉ dữ liệu giả | Code xong. 2 CSV nhãn URFD là thật, ảnh và video giả. Chưa có output thật |
+| 2. split | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có `splits.json` thật |
+| 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có hình minh họa augmentation thật |
+| 4. EDA | một phần | chỉ dữ liệu giả | Code xong. Chưa có 5 hình thật trong `reports/figures/` |
+| 5. M1 | một phần | chỉ dữ liệu giả | Code xong. Ngưỡng chưa tune. `make_tracks_tmp.py` đã chạy với YOLO thật trên 1 ảnh mẫu, không phải dataset |
+| 6. Bộ đánh giá | một phần | chỉ dữ liệu giả | Code và unit test xong. Chưa có bảng kết quả thật |
 
 ## Bản đồ file
 | File | Làm gì | Hàm/CLI chính | Đầu vào | Đầu ra |
@@ -56,9 +56,14 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: db62872  |  Cập nhật: 2026-11-
 3. Tạo Kaggle Dataset `nhom05-falldet-processed` từ thư mục trên.
 4. `notebooks/01_eda.ipynb`: Add Input dataset vừa tạo, bật Internet, không cần GPU, Run All.
 5. `notebooks/02_m1_baseline.ipynb`: Add Input dataset vừa tạo, bật GPU và Internet, Run All.
-6. Tải `metadata.csv`, `splits.json`, `DATA_CARD.md`, `reports/figures/*.png`, `reports/results/*` về, commit lên nhánh.
+6. Tải về và commit lên nhánh: `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `dataset_index/`; `reports/figures/*.png`; `reports/results/*`. Không dùng thư mục `data/` vì đã bị `.gitignore` chặn.
+7. Mở Pull Request vào `main` theo checklist mục 7 của prompt.
 
-Thời gian và dung lượng trên Kaggle: chưa đo.
+| Bước | Internet | GPU | Thời gian (ước tính, chưa đo) | Ghi ra /kaggle/working (ước tính, chưa đo) |
+|---|---|---|---|---|
+| 00_prepare_data | có | không | 15–30 phút | 1–3 GB |
+| 01_eda | có | không | 5–10 phút | dưới 50 MB |
+| 02_m1_baseline | có | có | 30–60 phút | dưới 200 MB |
 
 ## Số liệu thật đã kiểm tra
 Đo trên máy local, ảnh và video giả, **2 CSV nhãn URFD là thật**. Lệnh: `python tests/fake_kaggle.py <thư mục> --urfd-falls urfall-cam0-falls.csv --urfd-adls urfall-cam0-adls.csv`, sau đó `python -m src.data.prepare_data --config <thư mục>/data.yaml --workers 6`.
@@ -67,10 +72,13 @@ Thời gian và dung lượng trên Kaggle: chưa đo.
 - Le2i: chưa đo trên video thật. Số 130/96/31/3 trong log chạy thử là của dữ liệu giả.
 - Chất lượng M1 (P, R, F1, FAR, latency): chưa đo.
 
-Test: `python -m pytest tests -q`: 92 pass (85 unit + 7 end-to-end giả). `python tests/smoke_test.py`: 18/18.
+- YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
+
+Test: `python -m pytest tests -q`: 96 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
-- Chạy toàn bộ trên Kaggle → chưa chạy lần nào trên Kaggle → máy này không có Kaggle credentials và dữ liệu video.
+- Toàn bộ chạy trên Kaggle, có output thật → agent không chạy trên dataset → TV1 quyết định tự chạy sau.
+- Tạo HANDOFF từ Việc 1 và cập nhật sau mỗi Việc → chỉ tạo sau khi xong code → agent làm thiếu, TV1 phát hiện.
 - Chỉ sửa file của mình → đã sửa `.gitignore` chung → dòng `data/` chặn cả `src/data/`, phải thêm `!src/data/`, `!reports/figures/*.png`, `*.parquet`.
 - `requirements.txt` chốt cứng → đã làm, nhưng notebook Kaggle chỉ cài `ultralytics` và `lap` → cài cả file sẽ thay torch có sẵn của Kaggle.
 - Đặt `notebooks/01_eda.ipynb` → file này đã có sẵn của TV3 và đã được thay bằng notebook mới theo đúng tên prompt yêu cầu; bản cũ còn trong lịch sử git.
@@ -87,17 +95,26 @@ Test: `python -m pytest tests -q`: 92 pass (85 unit + 7 end-to-end giả). `pyth
 - bbox không còn diện tích sau khi clip thì bỏ và đếm trong DATA_CARD.
 - Chiều cao chuẩn hóa vận tốc là chiều cao lớn nhất trong 1.5 s gần nhất, vì bbox thấp đi khi ngã.
 - M1 chỉ dùng quá khứ, nên điểm tính được khi video đang chạy.
+- Thành phần bất động của M1: số giây bất động liên tục từ khi tư thế đổi, chia cho `immobile_s`, tối đa bằng 1; chỉ cộng điểm, không bắt buộc.
+- Lưu file nhỏ của dữ liệu vào `dataset_index/`, vì thư mục tên `data/` bị `.gitignore` chặn.
 - Trọng số M1 cố định 0.30/0.10/0.45/0.15, không nằm trong lưới tune, để lưới nhỏ và dễ giải thích.
 - Giữ `conf = 0.25` và `yolo11n.pt` theo `configs/default.yaml`.
 - Le2i chia theo (nhãn, scene), không tách thêm phần 01/02.
 
 ## Việc còn tồn đọng / rủi ro đã biết
-- Toàn bộ pipeline chưa chạy trên video thật của Le2i.
-- Hình EDA, hình augmentation, `metadata.csv`, `splits.json` thật chưa có.
-- `make_tracks_tmp.py`: chưa chạy với YOLO thật.
-- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp; nếu gặp, assert sẽ dừng kèm tên video.
+Output cần dataset, TV1 tự chạy (theo checklist mục 7):
+- `metadata.csv`, `annotations/*.csv`, `splits.json`, `DATA_CARD.md`, `videos/*.mp4` thật.
+- 5 biểu đồ EDA và `augment_demo.png` trong `reports/figures/`.
+- `tracks.parquet`, `predictions.csv`, bảng Precision/Recall/F1/FAR/latency và kết quả ADL negative khó trong `reports/results/`.
+- Pull Request vào `main`: mở sau khi có các output trên.
+
+Rủi ro đã biết:
+- Toàn bộ pipeline chưa chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch.
+- Ngưỡng mặc định trong `configs/m1.yaml` là giá trị khởi đầu, chưa kiểm chứng trên dữ liệu thật. Chất lượng M1 chưa đo.
+- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp; nếu gặp, assert dừng kèm tên video.
 - `window_label` với cửa sổ dài hơn 14 frame không bao giờ dương ở khoảng ngã Le2i ngắn nhất (7 frame).
 - M1 khó thấy người ngã thẳng về phía camera vì w/h ít đổi.
+- Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
 - Thay đổi chưa commit ở `src/trainer.py` (chỉ khoảng trắng) không phải của nhánh này, được để nguyên.
 
 ## Câu hỏi cho TV1

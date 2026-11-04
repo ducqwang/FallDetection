@@ -24,6 +24,12 @@ def moving_average(values: pd.Series, window: int) -> pd.Series:
     return values.rolling(window, min_periods=1).mean()
 
 
+def run_length_seconds(active: pd.Series, fps: float) -> pd.Series:
+    """Tại mỗi frame, số giây `active` đã đúng liên tục tính đến frame đó; False thì bằng 0."""
+    groups = (~active).cumsum()
+    return active.astype(int).groupby(groups).cumsum() / fps
+
+
 def contiguous_track(track: pd.DataFrame) -> pd.DataFrame:
     """Sắp theo frame và nội suy tuyến tính các frame track bị mất giữa chừng.
 

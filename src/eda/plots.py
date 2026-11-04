@@ -210,7 +210,9 @@ def main() -> None:
                                         config["rules"]["still_speed"], gt_boxes if args.tracks else None)
     source = f"{len(names)} đặc trưng hình học, cửa sổ {args.window_s:g} s, bbox từ {'tracks cache' if args.tracks else 'Le2i GT'}"
     written.append(plot_embedding(X, y, source, out_dir / "eda_5_pca_tsne.png", args.perplexity, args.seed))
-    print(f"TÓM TẮT | video trong metadata: {len(meta)} | cửa sổ: {len(y)} (té ngã {int(y.sum())}) | bỏ qua: 0 | Đã ghi: "
+    n_unlabeled = int((meta["has_event_label"] == 0).sum())
+    print(f"TÓM TẮT | video trong metadata: {len(meta)} | cửa sổ: {len(y)} (té ngã {int(y.sum())}) "
+          f"| bỏ qua ở biểu đồ 1-3, 5: {n_unlabeled} (has_event_label = 0) | Đã ghi: "
           + ", ".join(str(path) for path in written))
 
 

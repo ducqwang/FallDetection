@@ -48,7 +48,9 @@ expect:
       "home|02": [30, 7, 23, 0]
     odd_keys: ["coffee_room|01|26", "coffee_room|02|50", "coffee_room|02|52"]
     fps: {coffee_room: 25, home: 24}
-    n_320x180: {"home|01": 19, "home|02": 6}
+    sizes: [[320, 240], [320, 180]]
+    small_size: [320, 180]
+    n_small_size: {"home|01": 19, "home|02": 6}
     # Đếm trên 127 video có hai dòng đầu (không tính 3 video ODD).
     n_bbox_rows: 39970
     n_bbox_zero_rows: 71

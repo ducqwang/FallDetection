@@ -87,7 +87,7 @@ def main() -> None:
     out_path.write_text(yaml.safe_dump(tuned, allow_unicode=True, sort_keys=False), encoding="utf-8")
     grid_path = out_path.with_name(f"{out_path.stem}_grid.csv")
     table.to_csv(grid_path, index=False)
-    print(f"TÓM TẮT | val: {len(videos)} video | tổ hợp đã thử: {len(table)} | F1 tốt nhất: {best['f1']:.3f} "
+    print(f"TÓM TẮT | val: {len(videos)} video | bỏ qua: {len(meta) - len(videos)} (ngoài tập val) | tổ hợp đã thử: {len(table)} | F1 tốt nhất: {best['f1']:.3f} "
           f"(P={best['precision']:.3f}, R={best['recall']:.3f}, FP={int(best['fp'])}) | Đã ghi: {out_path}, {grid_path}")
 
 

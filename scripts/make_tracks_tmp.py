@@ -11,8 +11,12 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from ultralytics import YOLO
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -22,8 +26,8 @@ PERSON_CLASS = 0
 TRACKER = "bytetrack.yaml"
 
 
-def track_video(model, video_path: Path, video_id: str, conf: float, imgsz: int) -> list[dict]:
-    """Chạy YOLO11 + ByteTrack trên 1 video; frame_idx là thứ tự frame, từ 0.
+def track_video(model: "YOLO", video_path: Path, video_id: str, conf: float, imgsz: int) -> list[dict]:
+    """Chạy YOLO11 + ByteTrack trên 1 video; frame_idx là thứ tự frame, 0-based; conf ∈ [0, 1]; imgsz tính bằng pixel.
 
     Mỗi lời gọi tạo tracker mới (persist=False) để track_id không lẫn giữa các video.
     """
@@ -72,7 +76,8 @@ def main() -> None:
     tracks = pd.DataFrame(rows, columns=TRACK_COLUMNS)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     tracks.to_parquet(args.out, index=False)
-    print(f"TÓM TẮT | video đã chạy: {len(videos)} | không có track: {n_empty} | dòng: {len(tracks)} | Đã ghi: {args.out}")
+    print(f"TÓM TẮT | video đã chạy: {len(videos)} | bỏ qua: {len(meta) - len(videos)} (has_event_label = 0 hoặc khác --dataset) "
+          f"| không có track: {n_empty} | dòng: {len(tracks)} | Đã ghi: {args.out}")
 
 
 if __name__ == "__main__":

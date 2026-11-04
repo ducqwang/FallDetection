@@ -64,10 +64,10 @@ def _check_le2i_parts(used: list[dict], expect: dict) -> list[str]:
         kinds = Counter(v["kind"] for v in rows)
         actual = [len(rows), kinds["fall"], kinds["adl"], kinds["odd"]]
         issues += _differs(f"{part_key} [video, fall, adl, odd]", actual, list(numbers))
-        expected_small = expect["n_320x180"].get(part_key, 0)
-        n_small = sum(1 for v in rows if (v["width"], v["height"]) == (320, 180))
-        issues += _differs(f"{part_key} số video 320×180", n_small, expected_small)
-    other_sizes = {(v["width"], v["height"]) for v in used} - {(320, 240), (320, 180)}
+        small_size = tuple(expect["small_size"])
+        n_small = sum(1 for v in rows if (v["width"], v["height"]) == small_size)
+        issues += _differs(f"{part_key} số video {small_size}", n_small, expect["n_small_size"].get(part_key, 0))
+    other_sizes = {(v["width"], v["height"]) for v in used} - {tuple(size) for size in expect["sizes"]}
     issues += _differs("kích thước lạ", sorted(other_sizes), [])
     for video in used:
         issues += _differs(f"{video['key']} fps", video["fps"], float(expect["fps"][video["scene"]]))
@@ -82,8 +82,31 @@ def _check_le2i_bbox(used: list[dict], expect: dict) -> list[str]:
     issues = _differs("số dòng bbox", n_rows, expect["n_bbox_rows"])
     issues += _differs("số dòng bbox toàn 0", n_zero, expect["n_bbox_zero_rows"])
     lengths = [v["end"] - v["start"] for v in used if v["kind"] == "fall"]
+    if not lengths:
+        return issues + ["không có video fall nào để đo khoảng ngã"]
     measured = {"min": min(lengths), "median": float(np.median(lengths)), "max": max(lengths)}
     return issues + _differs("độ dài khoảng ngã (frame)", measured, dict(expect["fall_len_frames"]))
+
+
+def required_check_lines(sequences: list[dict], videos: list[dict]) -> list[str]:
+    """Kết quả các kiểm tra bắt buộc của Việc 1.5, để in ra và ghi vào DATA_CARD.md.
+
+    Mọi con số đo từ dữ liệu vừa quét. fps tính bằng frame/giây, kích thước bằng pixel.
+    """
+    falls = [s for s in sequences if s["label"] == "fall"]
+    lacking = sorted(s["seq"] for s in sequences if s["status"] == "CSV_THIEU_FRAME")
+    kinds = Counter(v["kind"] for v in videos)
+    fps_counts = Counter(f"{v['scene']} {v['fps']:g} fps" for v in videos)
+    size_counts = Counter(f"{v['width']}×{v['height']}" for v in videos)
+    return [
+        f"URFD Fall khớp hoàn toàn: {sum(s['status'] == 'OK' for s in falls)}/{len(falls)}",
+        f"URFD ADL CSV_THIEU_FRAME: {len(lacking)} chuỗi: {', '.join(lacking)}",
+        f"URFD dòng CSV không có ảnh: {sum(s['n_csv_without_image'] for s in sequences)}",
+        f"URFD chuỗi giữ lại: {len(sequences)}, không loại chuỗi nào",
+        f"Le2i: {len(videos)} video ({kinds['fall']} fall, {kinds['adl']} adl, {kinds['odd']} odd)",
+        f"Le2i fps: {dict(sorted(fps_counts.items()))}",
+        f"Le2i kích thước: {dict(sorted(size_counts.items()))}",
+    ]
 
 
 def check_le2i(all_videos: list[dict], used: list[dict], expect: dict) -> list[str]:
