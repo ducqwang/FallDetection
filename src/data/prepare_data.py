@@ -21,6 +21,9 @@ from .data_card import build_data_card
 from .metadata import le2i_row, metadata_frame, urfd_row
 
 
+LE2I_FRAME_HINT = " | gợi ý: thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)"
+
+
 def load_urfd(paths: dict, expect: dict) -> tuple[list[dict], pd.DataFrame, list[str]]:
     """Quét URFD. Trả về (chuỗi đã đối chiếu, bảng nhãn gốc, danh sách chỗ lệch)."""
     input_root = Path(paths["input_root"])
@@ -84,46 +87,62 @@ def print_inventory(sequences: list[dict], videos: list[dict], unreadable: list[
     print(f"video lỗi không đọc được: {unreadable}")
 
 
-def _verify_mp4(path: Path, expected: dict, name: str) -> None:
-    """Assert mp4 có đúng số frame, fps và kích thước với nguồn."""
+def _verify_mp4(path: Path, expected: dict, name: str, is_le2i: bool) -> str | None:
+    """So mp4 với nguồn về số frame, fps và kích thước. Khớp trả về None, lệch trả về mô tả."""
     actual = {**media.probe_video(path), "n_frames": media.count_frames(path)}
     wrong = {key: (actual[key], expected[key]) for key in expected if actual[key] != expected[key]}
-    if wrong:
-        raise DataCheckError(f"{name}: mp4 lệch nguồn (đo được, mong đợi): {wrong}")
+    if not wrong:
+        return None
+    message = f"{name}: mp4 lệch nguồn (đo được, mong đợi): {wrong}"
+    if "n_frames" in wrong:
+        message = f"{name}: số frame nguồn {expected['n_frames']}, số frame mp4 {actual['n_frames']}; {message}"
+        message += LE2I_FRAME_HINT if is_le2i else ""
+    return message
 
 
-def _convert_one(task: dict) -> str:
-    """Chuyển 1 video rồi kiểm tra; `--skip-existing` giữ mp4 đã có sau khi kiểm tra lại."""
+def _convert_one(task: dict) -> str | None:
+    """Chuyển 1 video rồi kiểm tra; `--skip-existing` giữ mp4 đã có sau khi kiểm tra lại.
+
+    Trả về None nếu khớp, ngược lại trả về mô tả chỗ lệch.
+    """
     out_path: Path = task["out_path"]
     if not (task["skip_existing"] and out_path.exists()):
         if "frames" in task:
             media.png_sequence_to_mp4(task["frames"], out_path, task["fps"])
         else:
             media.avi_to_mp4(task["source"], out_path)
-    _verify_mp4(out_path, {"fps": float(task["fps"]), "n_frames": task["n_frames"], "width": task["width"],
-                           "height": task["height"]}, task["video_id"])
-    return task["video_id"]
+    return _verify_mp4(out_path, {"fps": float(task["fps"]), "n_frames": task["n_frames"], "width": task["width"],
+                                  "height": task["height"]}, task["video_id"], "source" in task)
 
 
 def convert_videos(meta: pd.DataFrame, sequences: list[dict], videos: list[dict], out_root: Path,
-                   workers: int, skip_existing: bool) -> int:
-    """Chuyển toàn bộ sang mp4; trả về số video đã kiểm tra khớp."""
+                   workers: int, skip_existing: bool) -> tuple[int, int]:
+    """Chuyển toàn bộ sang mp4 và kiểm tra từng file.
+
+    Trả về (số video đã chuyển, số video mp4 lệch). Có video lệch thì in từng video rồi raise,
+    nên giá trị thứ hai luôn bằng 0 khi hàm trả về bình thường.
+    """
     sources = {urfd_video_id(s["seq"], s["camera"]): {"frames": s["frames"]} for s in sequences}
     sources.update({v["row"]["video_id"]: {"source": v["path"]} for v in videos})
     tasks = [{**sources[row.video_id], "video_id": row.video_id, "out_path": out_root / row.path,
               "fps": row.fps, "n_frames": row.n_frames, "width": row.width, "height": row.height,
               "skip_existing": skip_existing} for row in meta.itertuples()]
     with ThreadPoolExecutor(workers) as pool:
-        return len(list(pool.map(_convert_one, tasks)))
+        problems = [problem for problem in pool.map(_convert_one, tasks) if problem]
+    for problem in problems:
+        print(problem)
+    if problems:
+        raise DataCheckError(f"{len(problems)} video mp4 lệch nguồn, báo TV1:\n" + "\n".join(problems))
+    return len(tasks), len(problems)
 
 
-def run_log(meta: pd.DataFrame) -> str:
-    """Dòng log số liệu cuối chạy, đếm từ metadata đã ghi."""
+def run_log(meta: pd.DataFrame, n_mismatch: int) -> str:
+    """Dòng log số liệu cuối chạy, đếm từ metadata. n_mismatch là số đếm thật từ convert_videos."""
     urfd_rows, le2i_rows = meta[meta["dataset"] == "urfd"], meta[meta["dataset"] == "le2i"]
     n_odd = int((le2i_rows["has_event_label"] == 0).sum())
     return (f"urfd: {len(urfd_rows)} video ({(urfd_rows['label'] == 'fall').sum()} fall, {(urfd_rows['label'] == 'adl').sum()} adl) | "
             f"le2i: {len(le2i_rows)} video ({(le2i_rows['label'] == 'fall').sum()} fall, {(le2i_rows['label'] == 'adl').sum()} adl, {n_odd} odd) | "
-            "mp4 frame mismatch: 0")
+            f"mp4 frame mismatch: {n_mismatch}")
 
 
 def write_outputs(meta: pd.DataFrame, labels: pd.DataFrame, boxes: pd.DataFrame, card: str, out_root: Path) -> list[Path]:
@@ -166,13 +185,13 @@ def main() -> None:
     check_lines = checks.required_check_lines(sequences, videos)
     print("kiểm tra số liệu: khớp mục 2.1 và 2.2\n" + "\n".join(check_lines))
     meta = metadata_frame([urfd_row(s, cfg["expect"]["urfd"]["fps"]) for s in sequences] + [v["row"] for v in videos])
-    n_ok = convert_videos(meta, sequences, videos, out_root, args.workers, args.skip_existing)
+    n_ok, n_mismatch = convert_videos(meta, sequences, videos, out_root, args.workers, args.skip_existing)
     bbox_stats = {key: sum(v["bbox_stats"][key] for v in videos) for key in ("n_rows", "n_zero", "n_degenerate")}
     card = build_data_card(meta, sequences, bbox_stats, cfg["dataset_sources"], check_lines,
                            cfg["expect"]["urfd"]["short_after_lying_frames"])
     written = write_outputs(meta, labels, boxes, card, out_root)
     n_skipped = sum(cfg["expect"]["le2i"]["excluded"].values())
-    print(run_log(meta))
+    print(run_log(meta, n_mismatch))
     print(f"TÓM TẮT | video đã xử lý: {n_ok} | bỏ qua: {n_skipped} (Office, Lecture room: không có annotation) "
           f"| bbox: {len(boxes)} dòng")
     print("Đã ghi:", ", ".join(str(path) for path in written), f"và {n_ok} mp4 trong {out_root / 'videos'}")

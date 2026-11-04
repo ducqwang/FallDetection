@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data import checks, le2i, urfd
+from src.data import checks, le2i, prepare_data, urfd
 from src.data.common import DataCheckError, le2i_video_id, sequence_id, urfd_video_id
 from src.data.metadata import le2i_row, metadata_frame, urfd_row
 
@@ -179,3 +179,45 @@ def test_repo_config_has_expected_numbers():
     config = yaml.safe_load(Path("configs/data.yaml").read_text(encoding="utf-8"))
     assert len(config["expect"]["urfd"]["adl_csv_thieu_frame"]) == 18
     assert sum(v[0] for v in config["expect"]["le2i"]["per_part"].values()) == 130
+
+
+def fake_measure(monkeypatch, n_frames):
+    monkeypatch.setattr(prepare_data.media, "probe_video", lambda path: {"fps": 25.0, "width": 320, "height": 240})
+    monkeypatch.setattr(prepare_data.media, "count_frames", lambda path: n_frames)
+    monkeypatch.setattr(prepare_data.media, "avi_to_mp4", lambda source, out: None)
+
+
+def mismatch_meta():
+    return pd.DataFrame([{"video_id": "le2i_home01_001", "path": "videos/a.mp4", "fps": 25.0, "n_frames": 30,
+                          "width": 320, "height": 240}])
+
+
+def le2i_source():
+    return [{"row": {"video_id": "le2i_home01_001"}, "path": Path("video (1).avi")}]
+
+
+def test_le2i_frame_mismatch_names_video_counts_and_hint(monkeypatch, tmp_path, capsys):
+    fake_measure(monkeypatch, 31)
+    with pytest.raises(DataCheckError) as error:
+        prepare_data.convert_videos(mismatch_meta(), [], le2i_source(), tmp_path, 1, False)
+    printed = capsys.readouterr().out
+    for text in ("le2i_home01_001", "số frame nguồn 30", "số frame mp4 31", "-fps_mode passthrough", "-vsync 0"):
+        assert text in str(error.value) and text in printed
+
+
+def test_urfd_frame_mismatch_has_no_le2i_hint(monkeypatch, tmp_path):
+    fake_measure(monkeypatch, 31)
+    monkeypatch.setattr(prepare_data.media, "png_sequence_to_mp4", lambda frames, out, fps: None)
+    meta = mismatch_meta().assign(video_id="urfd_fall-01_cam0")
+    sequences = [{"seq": "fall-01", "camera": "cam0", "frames": []}]
+    with pytest.raises(DataCheckError) as error:
+        prepare_data.convert_videos(meta, sequences, [], tmp_path, 1, False)
+    assert "số frame mp4 31" in str(error.value) and "fps_mode" not in str(error.value)
+
+
+def test_run_log_uses_counted_mismatch(monkeypatch, tmp_path):
+    fake_measure(monkeypatch, 30)
+    meta = mismatch_meta().assign(dataset="le2i", label="fall", has_event_label=1)
+    n_ok, n_mismatch = prepare_data.convert_videos(meta, [], le2i_source(), tmp_path, 1, False)
+    assert (n_ok, n_mismatch) == (1, 0)
+    assert "mp4 frame mismatch: 7" in prepare_data.run_log(meta, 7)
