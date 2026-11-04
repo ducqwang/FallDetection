@@ -50,7 +50,7 @@ Accuracy (tại `thr`), ROC-AUC, PR-AUC (average precision).
 - **URFD:** nhãn 0 của mọi chuỗi Fall dài đúng 30 frame, nên khoảng sự kiện là `[fall_start, fall_start + 30 frame]`. Đây là **quy ước của bộ dữ liệu, không phải thời điểm đo được**. `fall_end` không phải thời điểm kết thúc đo thật, vì vậy **latency luôn tính từ `fall_start`, không tính từ `fall_end`**.
 - **URFD:** 8/30 chuỗi Fall chỉ còn dưới 15 frame sau khi nằm (fall-13, 15, 16, 17, 21, 25, 27, 28), nên mô hình đòi bất động dài sẽ bỏ sót các chuỗi này.
 - **Le2i:** khoảng ngã dài 7 đến 45 frame (trung vị 23.5). Người thường đã nằm xuống trước `fall_end`, nên cửa sổ bao trọn cú ngã. Latency vẫn tính từ `fall_start`.
-- **Le2i:** chia theo (nhãn, scene) nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test; kết quả trong cùng bộ Le2i có thể lạc quan. Tập test rất nhỏ (ước tính khoảng 14 fall và 5 ADL). Vì vậy **kết quả chính là cross-dataset** (`--split all`) trên toàn bộ 127 video có nhãn.
+- **Le2i:** chia theo (nhãn, scene) nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test; kết quả trong cùng bộ Le2i có thể lạc quan. Tập test rất nhỏ (ước tính khoảng 15 fall và 5 ADL). Vì vậy **kết quả chính là cross-dataset** (`--split all`) trên toàn bộ 130 video có nhãn.
 - Precision của URFD phụ thuộc mạnh vào 16 ADL negative khó, nên luôn báo cáo riêng nhóm này.
 
 ## 6. ADL negative khó

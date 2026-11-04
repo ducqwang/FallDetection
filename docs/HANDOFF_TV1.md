@@ -7,7 +7,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 8a515b4  |  Cập nhật: 2026-11-
 | Việc | Trạng thái | Đã chạy trên dữ liệu thật? | Ghi chú |
 |---|---|---|---|
 | 0. Notebook kiểm tra | xong | chưa | Đã thêm 2 notebook, giữ nguyên source, xóa output. Agent không chạy lại; bản gốc đã được TV1 chạy trên Kaggle |
-| 1. prepare_data | một phần | chỉ dữ liệu giả | Code xong. 2 CSV nhãn URFD là thật, ảnh và video giả. Chưa có output thật |
+| 1. prepare_data | một phần | chỉ dữ liệu giả | TV1 chạy trên Kaggle, dừng ở `parse_annotation` với dòng `197`. Đã sửa, bản sửa chỉ chạy trên dữ liệu giả, chưa chạy lại trên Kaggle |
 | 2. split | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có `splits.json` thật |
 | 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có hình minh họa augmentation thật |
 | 4. EDA | một phần | chỉ dữ liệu giả | Code xong. Chưa có 5 hình thật trong `reports/figures/` |
@@ -21,7 +21,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 8a515b4  |  Cập nhật: 2026-11-
 | `configs/m1.yaml` | Mọi ngưỡng và lưới tune của M1 | `signals`, `rules`, `weights`, `alarm`, `grid` | | |
 | `src/data/prepare_data.py` | CLI Việc 1 | `--config --input-root --out-root --workers --skip-existing` | `/kaggle/input` | mp4, csv, DATA_CARD |
 | `src/data/urfd.py` | Đọc URFD, ghép nhãn theo số frame | `read_labels`, `scan_sequences`, `match_labels` | ảnh, 2 CSV | dict chuỗi |
-| `src/data/le2i.py` | Đọc Le2i, annotation, bbox | `scan_videos`, `parse_annotation`, `clean_boxes(video_id, boxes, width, height, n_frames)` | avi, txt | dict video, bảng bbox |
+| `src/data/le2i.py` | Đọc Le2i, annotation, bbox | `scan_videos`, `parse_annotation(path)` (header_top, header_mid), `clean_boxes(video_id, boxes, width, height, n_frames)` | avi, txt | dict video, bảng bbox |
 | `src/data/media.py` | ffmpeg, ffprobe | `png_sequence_to_mp4`, `avi_to_mp4`, `probe_video`, `count_frames` | ảnh, video | mp4, thông số |
 | `src/data/checks.py` | So với số liệu đã xác nhận | `check_urfd`, `check_le2i` | dữ liệu đã quét | danh sách chỗ lệch |
 | `src/data/metadata.py` | Dựng `metadata.csv` | `urfd_row`, `le2i_row`, `metadata_frame` | dict video | DataFrame |
@@ -69,15 +69,17 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 8a515b4  |  Cập nhật: 2026-11-
 Đo trên máy local, ảnh và video giả, **2 CSV nhãn URFD là thật**. Lệnh: `python tests/fake_kaggle.py <thư mục> --urfd-falls urfall-cam0-falls.csv --urfd-adls urfall-cam0-adls.csv`, sau đó `python -m src.data.prepare_data --config <thư mục>/data.yaml --workers 6`.
 - URFD: 70 chuỗi (30 fall, 40 ADL); trạng thái `OK` 52, `CSV_THIEU_FRAME` 18; `adl_hard_neg = 1`: 16; 11544 dòng nhãn; `fall-16` có `fall_start_frame = 16`, `fall_end_frame = 46`; `adl-17` có 52 frame NaN.
 - Tổng số ảnh 11936 khớp output notebook `check_urfd_structure_v2`, nhưng số ảnh được dựng lại từ CSV và bảng trong notebook đó, không phải đếm trên ảnh thật.
-- Le2i: chưa đo trên video thật. Số 130/96/31/3 trong log chạy thử là của dữ liệu giả.
+- Le2i: agent chưa đo trên video thật. Số 130 video, 99 fall, 31 ADL và 3 video `header_mid` do TV1 kiểm tra trên dữ liệu thật; bản sửa chưa chạy lại trên Kaggle.
+- Lỗi thật đầu tiên trên Kaggle (TV1 báo): `parse_annotation` dừng ở `dòng bbox không đủ 6 cột: '197'`, file Coffee_room_01 video (26).
 - Chất lượng M1 (P, R, F1, FAR, latency): chưa đo.
 
 - Dữ liệu tổng hợp, không phải dataset (đo bằng đoạn lệnh tạm trước khi sửa; tính chất tương ứng được kiểm tra trong `tests/test_m1.py`): `aspect` đứng 0.353, nằm 2.833; tại frame vừa nằm `posture_score` = 1.0. Khoảng trống 10 frame: `vy` lớn nhất 0.1765, bằng lúc không có khoảng trống; nếu tính theo số dòng sẽ là 2.75.
 - YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python -m pytest tests -q`: 121 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
+Test: `python -m pytest tests -q`: 145 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
+- Prompt phiên bản 5 có 3 video chưa xác định, 127 video có nhãn, schema không có `label_source`, `aux_code` → đổi theo chỉ đạo mới của TV1: 130 video, thêm 2 cột → `docs/PROMPT_TV1_GiuaKy.md` không có trong repo, bản trên máy agent vẫn là phiên bản 5, nên agent làm theo tóm tắt 6 mục của TV1.
 - Toàn bộ chạy trên Kaggle, có output thật → agent không chạy trên dataset → TV1 quyết định tự chạy sau.
 - Tạo HANDOFF từ Việc 1 và cập nhật sau mỗi Việc → chỉ tạo sau khi xong code → agent làm thiếu, TV1 phát hiện.
 - Chỉ sửa file của mình → đã sửa `.gitignore` chung → dòng `data/` chặn cả `src/data/`, phải thêm `!src/data/`, `!reports/figures/*.png`, `*.parquet`.
@@ -90,7 +92,6 @@ Test: `python -m pytest tests -q`: 121 pass, 0 fail (phần lớn dữ liệu gi
 - Thêm ngoài danh sách: `--split all`, `--tuned`, `--T` nhiều giá trị, `reference_meta` trong `evaluate()`, `scripts/summarize_results.py`, tách `src/data/{common,media,urfd,le2i,metadata,checks,data_card,env_info}.py`, `src/models/m1_features.py`, `src/eval/frame_metrics.py` → để giữ mỗi file dưới 250 dòng và chạy cross-dataset.
 
 ## Giả định và việc bạn tự quyết
-- `label` để trống với 3 video ODD: schema chỉ có `fall|adl`, điền giá trị nào cũng là đoán.
 - URFD: `scene = urfd`, `scene_part` trống. Le2i: `camera` trống, vì dữ liệu không có thông tin camera.
 - `path` trong metadata là đường dẫn tương đối, để dataset chuyển sang `/kaggle/input` vẫn dùng được.
 - `select_main_track` Le2i: mẫu số là số frame có GT, để track rất ngắn không thắng.
@@ -99,6 +100,7 @@ Test: `python -m pytest tests -q`: 121 pass, 0 fail (phần lớn dữ liệu gi
 - M1 chỉ dùng quá khứ, nên điểm tính được khi video đang chạy.
 - Thành phần bất động của M1: số giây bất động liên tục từ khi tư thế đổi, chia cho `immobile_s`, tối đa bằng 1; chỉ cộng điểm, không bắt buộc.
 - Khoảng trống track dài hơn `max_gap_s = 0.5` giây: tách đoạn, reset trạng thái, không xuất điểm trong khoảng trống; ngắn hơn: nội suy tuyến tính.
+- Kiểm tra `n_bbox_rows`, `n_bbox_zero_rows`, `fall_len_frames` chỉ áp dụng cho video `header_top`, vì các số 39970, 71 và 7/23.5/45 được đo trên nhóm này; chưa có số đo cho 130 video.
 - Lưu file nhỏ của dữ liệu vào `dataset_index/`, vì thư mục tên `data/` bị `.gitignore` chặn.
 - Trọng số M1 cố định 0.30/0.10/0.45/0.15, không nằm trong lưới tune, để lưới nhỏ và dễ giải thích.
 - Giữ `conf = 0.25` và `yolo11n.pt` theo `configs/default.yaml`.
@@ -111,7 +113,8 @@ Output cần dataset, TV1 tự chạy (theo checklist mục 7):
 - Pull Request vào `main`: mở sau khi có các output trên.
 
 Rủi ro đã biết:
-- Toàn bộ pipeline chưa chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch.
+- Pipeline mới chạy thật tới `parse_annotation`; các bước sau chưa từng chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch; annotation hoặc video lỗi được in đủ một lần.
+- Dữ liệu fake có cặp giữa file theo mẫu của TV1; 3 file thật chưa được parser mới đọc thử.
 - Ngưỡng mặc định trong `configs/m1.yaml` là giá trị khởi đầu, chưa kiểm chứng trên dữ liệu thật. Chất lượng M1 chưa đo.
 - Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp. `avi_to_mp4` giữ nguyên tham số của prompt, không thêm cờ trước khi có lỗi thật.
 - Nếu mp4 lệch số frame ở bước chạy thật đầu tiên: `_verify_mp4` trong `src/data/prepare_data.py` in tên video, số frame nguồn, số frame mp4, kèm gợi ý `thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)` cho Le2i, rồi `convert_videos` in mọi video lệch và dừng. Test: `test_le2i_frame_mismatch_names_video_counts_and_hint`.
@@ -128,6 +131,8 @@ Rủi ro đã biết:
 5. Le2i chia theo (nhãn, scene) nên kết quả trong cùng bộ có thể lạc quan; kết quả chính là cross-dataset (`--split all`). Ghi ở `DATA_CARD.md` và `docs/EVAL_PROTOCOL.md`.
 6. `mp4 frame mismatch` là số đếm thật từ `convert_videos`; có video lệch thì đã raise trước dòng log.
 
+7. Le2i dùng đủ 130 video (99 fall, 31 ADL), `has_event_label = 1` cho tất cả, không còn khái niệm video chưa xác định. 3 video có cặp khoảng ngã giữa file có `label_source = header_mid`: `le2i_coffee_room01_026`, `le2i_coffee_room02_050`, `le2i_coffee_room02_052`.
+
 ## Việc cho TV3
 TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không sửa.
 
@@ -138,3 +143,4 @@ TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không s�
 
 ## Câu hỏi cho TV1
 1. Version của 3 dataset Kaggle là bao nhiêu? (điền vào `configs/data.yaml`)
+2. Có thể đưa bản prompt mới nhất vào repo tại `docs/PROMPT_TV1_GiuaKy.md` không, để agent đối chiếu nguyên văn?

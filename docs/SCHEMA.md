@@ -14,7 +14,7 @@ Tài liệu này để TV1, TV2, TV3 chốt định dạng. Các hằng số tê
 
 ## metadata.csv
 
-Một dòng mỗi video: 70 dòng URFD, 130 dòng Le2i (chỉ Home và Coffee room).
+Một dòng mỗi video: 70 dòng URFD, 130 dòng Le2i (chỉ Home và Coffee room; 99 fall, 31 ADL).
 
 | Cột | Kiểu | Ý nghĩa |
 |---|---|---|
@@ -23,9 +23,9 @@ Một dòng mỗi video: 70 dòng URFD, 130 dòng Le2i (chỉ Home và Coffee ro
 | `scene` | chuỗi | `urfd`, `home`, `coffee_room` |
 | `scene_part` | chuỗi | Le2i: `01`, `02` (giữ số 0 đầu, đọc bằng `dtype=str`). URFD: trống |
 | `camera` | chuỗi | URFD: `cam0`. Le2i: trống |
-| `label` | `fall` \| `adl` | Nhãn mức video. Trống với 3 video ODD của Le2i |
-| `fall_start_frame` | int, 0-based | URFD: frame đầu có nhãn 0. Le2i: dòng 1 của annotation trừ 1. Trống với ADL và ODD |
-| `fall_end_frame` | int, 0-based | URFD: frame đầu có nhãn 1. Le2i: dòng 2 của annotation trừ 1. Trống với ADL và ODD |
+| `label` | `fall` \| `adl` | Nhãn mức video |
+| `fall_start_frame` | int, 0-based | URFD: frame đầu có nhãn 0. Le2i: frame bắt đầu ngã trong annotation (dòng 1, hoặc dòng đầu của cặp giữa file) trừ 1. Trống với ADL |
+| `fall_end_frame` | int, 0-based | URFD: frame đầu có nhãn 1. Le2i: frame kết thúc ngã trong annotation (dòng 2, hoặc dòng sau của cặp giữa file) trừ 1. Trống với ADL |
 | `fps` | số | fps của video |
 | `n_frames` | int | Số frame thật của mp4 |
 | `width`, `height` | int | Kích thước gốc, pixel. Không resize |
@@ -35,14 +35,15 @@ Một dòng mỗi video: 70 dòng URFD, 130 dòng Le2i (chỉ Home và Coffee ro
 | `label_coverage` | số | Chỉ URFD: số frame có nhãn / `n_frames`. Le2i trống |
 | `adl_hard_neg` | 0 \| 1 | 1 = ADL của URFD có nhãn frame 0 hoặc 1 (negative khó). Mọi dòng khác là 0 |
 | `path` | chuỗi | Đường dẫn mp4, tương đối so với thư mục dữ liệu |
+| `label_source` | `header_top` \| `header_mid` \| `urfd_csv` | Nguồn nhãn: hai dòng đầu file annotation Le2i; cặp dòng nằm giữa hoặc cuối file annotation Le2i (3 video); CSV nhãn URFD |
 
 Đọc bằng `src.data.loader.load_metadata()` để giữ đúng kiểu cột.
 
 ## annotations/le2i_gt_bbox.csv
 
-`video_id, frame_idx, x1, y1, x2, y2`
+`video_id, frame_idx, x1, y1, x2, y2, aux_code`
 
-Đã bỏ dòng toàn 0 (không có người) và đã clip vào `[0,w]×[0,h]`. Frame không có dòng nghĩa là không có người, không điền bbox. Có cả 3 video ODD.
+`aux_code` là cột 2 gốc của dòng bbox, số nguyên, chưa rõ nghĩa, không dùng ở đâu. Đã bỏ dòng toàn 0 (không có người) và đã clip vào `[0,w]×[0,h]`. Frame không có dòng nghĩa là không có người, không điền bbox.
 
 ## annotations/urfd_frame_labels.csv
 

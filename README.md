@@ -64,7 +64,7 @@ Sau khi chạy, commit `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `datas
 
 Chạy test: `python -m pytest tests -q` (phần end-to-end cần ffmpeg và ffprobe).
 
-**Cross-dataset** không cần file chia riêng. Protocol A: train trên URFD, test toàn bộ Le2i (127 video có nhãn). Protocol B: train trên Le2i, test toàn bộ URFD (70 video). Dùng `--split all` trong `scripts/evaluate.py`.
+**Cross-dataset** không cần file chia riêng. Protocol A: train trên URFD, test toàn bộ Le2i (130 video có nhãn). Protocol B: train trên Le2i, test toàn bộ URFD (70 video). Dùng `--split all` trong `scripts/evaluate.py`.
 
 ## Chạy nhanh (local)
 ```bash
