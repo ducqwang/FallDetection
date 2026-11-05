@@ -35,7 +35,7 @@ Cộng dồn TP, FP, FN trên toàn tập rồi mới tính (micro).
 - **FAR báo cáo chính** là `far_nonfall_per_hour` = số FP / số giờ video nằm NGOÀI cửa sổ dung sai quanh sự kiện, tính trên cả video fall lẫn ADL. FP của video fall là các cảnh báo ngoài cửa sổ dung sai.
 - `far_per_hour` chỉ là **số phụ**: cùng số FP nhưng mẫu là tổng giờ video. Clip URFD ngắn nên hai số có thể khác nhau nhiều. Mọi bảng kết quả ghi rõ cột nào là chính: `scripts/evaluate.py` ghi `(FAR CHÍNH)`, `scripts/summarize_results.py` có cột `far_nonfall_per_hour (CHÍNH)`.
 - **Latency** = thời điểm cảnh báo TP − thời điểm `fall_start` (giây). Báo cả trung bình và trung vị, **giữ giá trị âm** (báo trước `fall_start`).
-- Video không có dòng dự đoán tính là không có cảnh báo. Video `has_event_label = 0` không được đánh giá.
+- Video không có dòng dự đoán tính là không có cảnh báo; `scripts/evaluate.py` in cảnh báo kèm 5 video đầu và ghi số video đó vào khóa `n_videos_without_predictions` của JSON, không dừng chương trình. Video `has_event_label = 0` không được đánh giá.
 
 ## 4. Độ đo mức frame (phụ)
 
@@ -68,3 +68,20 @@ python scripts/evaluate.py --pred predictions.csv --meta metadata.csv --split al
 ```
 
 Kết quả in thành bảng và lưu JSON vào `reports/results/`. Ngưỡng `thr` chỉ được chọn trên tập val.
+
+Các lệnh trên dùng `--thr` cho mô hình không có file tune. M1 phải theo quy trình dưới đây.
+
+### Quy trình M1 bắt buộc
+
+Chạy đúng thứ tự, cả 3 bước dùng **cùng một file tune**:
+
+```bash
+# 1. Tune luật và thr, chỉ trên val
+python scripts/tune_m1.py --tracks tracks.parquet --meta metadata.csv --dataset urfd --out reports/results/m1_tuned_urfd.yaml
+# 2. Sinh predictions bằng luật đã tune
+python -m src.models.m1_rule --tracks tracks.parquet --meta metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out predictions.csv
+# 3. Đánh giá bằng thr đã tune
+python scripts/evaluate.py --pred predictions.csv --meta metadata.csv --split test --dataset urfd --tuned reports/results/m1_tuned_urfd.yaml
+```
+
+**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `thr` được chọn cùng với luật, nên chỉ có ý nghĩa với điểm sinh từ đúng các luật đó. `evaluate.py --tuned` chỉ đọc `alarm.thr`, không biết `predictions.csv` được sinh bằng luật nào, nên nếu bỏ `--tuned` ở bước 2 thì lệnh vẫn chạy và không báo lỗi, nhưng kết quả sai.

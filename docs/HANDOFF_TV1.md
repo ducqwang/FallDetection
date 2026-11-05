@@ -1,5 +1,5 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 55e7fec  |  Cập nhật: 2026-11-05 15:07
+Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-05 15:15
 
 > Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Output EDA và M1 còn thiếu được liệt kê ở mục "Việc còn tồn đọng". PR vào `main`: https://github.com/ducqwang/FallDetection/pull/1
 
@@ -38,7 +38,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 55e7fec  |  Cập nhật: 2026-11-
 | `src/models/m1_rule.py` | CLI M1 | `predict`, `score_signals`, `posture_score`; `--tracks \| --gt-bbox --meta --out --tuned` | tracks | `predictions.csv` |
 | `src/eval/event_metrics.py` | Độ đo sự kiện | `find_alarms`, `match_alarms`, `evaluate(pred, meta_rows, thr, tolerance_s, merge_gap_s, frame_labels, reference_meta)` | dự đoán, metadata | dict |
 | `src/eval/frame_metrics.py` | Độ đo frame | `frame_level_metrics(records, thr)` | điểm theo frame | dict |
-| `scripts/evaluate.py` | CLI đánh giá | `--pred --meta --split --dataset --thr --tuned --T --tag` | csv | bảng, JSON |
+| `scripts/evaluate.py` | CLI đánh giá, cảnh báo video không có dự đoán (`n_videos_without_predictions` trong JSON) | `--pred --meta --split --dataset --thr --tuned --T --tag` | csv | bảng, JSON |
 | `scripts/tune_m1.py` | Grid search chỉ trên val | `--tracks \| --gt-bbox --meta --dataset --out` | tracks | yaml, csv |
 | `scripts/make_tracks_tmp.py` | TẠM THỜI: YOLO11 + ByteTrack | `--meta --out --dataset --model --conf --imgsz` | mp4 | `tracks.parquet` |
 | `scripts/summarize_results.py` | Gom bảng kết quả | `--results-dir --out` | JSON | csv |
@@ -67,6 +67,11 @@ Bước 1 đến 3 đã xong, còn bước 4 và 5, rồi commit output ở bư�
 | tv1_01_eda | có | không | 5–10 phút | dưới 50 MB |
 | 02_m1_baseline | có | có | 30–60 phút | dưới 200 MB |
 
+### Quy trình M1 bắt buộc
+Chạy đúng thứ tự `tune_m1` → `m1_rule --tuned` (sinh predictions) → `evaluate --tuned`, cả 3 bước dùng cùng một file tune. Lệnh đầy đủ ở `docs/EVAL_PROTOCOL.md` mục 7; `notebooks/02_m1_baseline.ipynb` đã theo đúng thứ tự này.
+
+**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `evaluate --tuned` chỉ đọc `alarm.thr`, không biết predictions được sinh bằng luật nào. Bỏ `--tuned` ở `m1_rule` thì lệnh vẫn chạy, không báo lỗi, nhưng kết quả sai.
+
 ## Số liệu thật đã kiểm tra
 Từ `dataset_index/` do TV1 chạy trên Kaggle:
 - Tổng 200 video: URFD 70 (30 fall, 40 ADL), Le2i 130 (99 fall, 31 ADL). Tổng số frame URFD 11936.
@@ -82,7 +87,7 @@ Từ `dataset_index/` do TV1 chạy trên Kaggle:
 - Dữ liệu tổng hợp, không phải dataset (đo bằng đoạn lệnh tạm trước khi sửa; tính chất tương ứng được kiểm tra trong `tests/test_m1.py`): `aspect` đứng 0.353, nằm 2.833; tại frame vừa nằm `posture_score` = 1.0. Khoảng trống 10 frame: `vy` lớn nhất 0.1765, bằng lúc không có khoảng trống; nếu tính theo số dòng sẽ là 2.75.
 - YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python3 -m pytest tests -q`: 136 pass, 9 skip, 0 fail (phần lớn dữ liệu giả). Cả 9 test skip ở `tests/test_pipeline_fake.py` vì máy chạy không có ffmpeg; lần chạy trước có ffmpeg đạt 145 pass. `python3 tests/smoke_test.py`: 18/18.
+Test: `python3 -m pytest tests -q`: 138 pass, 9 skip, 0 fail (phần lớn dữ liệu giả). Cả 9 test skip ở `tests/test_pipeline_fake.py` vì máy chạy không có ffmpeg, chúng chưa chạy lại từ khi có ffmpeg đạt 145 pass. `python3 tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
 - Prompt phiên bản 5 có 3 video chưa xác định, 127 video có nhãn, schema không có `label_source`, `aux_code` → đổi theo chỉ đạo mới của TV1: 130 video, thêm 2 cột → `docs/PROMPT_TV1_GiuaKy.md` không có trong repo, bản trên máy agent vẫn là phiên bản 5, nên agent làm theo tóm tắt 6 mục của TV1.
