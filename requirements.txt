@@ -1,24 +1,31 @@
+# Phiên bản chốt cứng. Đã kiểm tra cài được trên Python 3.11 và chạy test của TV1.
+# Trên Kaggle KHÔNG chạy pip install -r file này (sẽ thay torch có sẵn): notebook chỉ cài ultralytics và lap.
+
 # Core
-numpy>=1.24
-pandas>=2.0
-opencv-python>=4.8
-Pillow>=10.0
-pyyaml>=6.0
-tqdm>=4.65
+numpy==2.4.2
+pandas==2.3.3
+opencv-python==4.13.0.92
+Pillow==12.2.0
+pyyaml==6.0.3
+tqdm==4.67.3
+pyarrow==23.0.1          # đọc/ghi tracks.parquet
 
 # ML / DL
-scikit-learn>=1.3        # PCA, t-SNE, metrics
-torch>=2.1               # có sẵn trên Kaggle
-ultralytics>=8.3         # YOLO11 (detection + pose)
+scikit-learn==1.8.0      # PCA, t-SNE, metrics
+torch==2.15.0            # có sẵn trên Kaggle
+ultralytics==8.4.202     # YOLO11 (detection + pose)
 
 # Tracking & eval
-lap>=0.4                 # Hungarian cho ByteTrack
+lap==0.5.14              # Hungarian cho ByteTrack
 # TrackEval: cài từ github khi cần IDF1/MOTA (tùy chọn)
 
 # Visualization
-matplotlib>=3.7
-seaborn>=0.12
+matplotlib==3.10.8
+seaborn==0.13.2
 
 # Demo
-streamlit>=1.30
+streamlit==1.66.1
 # gradio>=4.0            # thay thế nếu muốn
+
+# Test
+pytest==9.1.1
