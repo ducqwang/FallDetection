@@ -185,6 +185,30 @@ def test_cli_rejects_bad_predictions_with_clear_message(change, message, tmp_pat
     assert "IndexError" not in done.stderr
 
 
+def run_evaluate_cli(tmp_path, video_ids, predicted_id):
+    meta_frame([meta_row(video_id, "adl", 300) for video_id in video_ids]).to_csv(tmp_path / "metadata.csv", index=False)
+    predictions(predicted_id, [1]).to_csv(tmp_path / "pred.csv", index=False)
+    done = subprocess.run([sys.executable, "scripts/evaluate.py", "--pred", str(tmp_path / "pred.csv"), "--meta",
+                           str(tmp_path / "metadata.csv"), "--split", "all", "--dataset", "urfd", "--out-dir", str(tmp_path)],
+                          capture_output=True, text=True)
+    return done, json.loads((tmp_path / "pred_urfd_all.json").read_text(encoding="utf-8"))
+
+
+def test_cli_warns_about_videos_without_predictions_and_does_not_raise(tmp_path):
+    done, payload = run_evaluate_cli(tmp_path, ["has_pred", *[f"miss{i}" for i in range(6)]], "has_pred")
+    assert done.returncode == 0
+    assert ("6 video không có dòng dự đoán nào (tính là không cảnh báo): "
+            "miss0, miss1, miss2, miss3, miss4\n") in done.stdout
+    assert "miss5" not in done.stdout
+    assert payload["n_videos_without_predictions"] == 6
+
+
+def test_cli_stays_quiet_when_every_video_has_predictions(tmp_path):
+    done, payload = run_evaluate_cli(tmp_path, ["only"], "only")
+    assert done.returncode == 0 and "không có dòng dự đoán" not in done.stdout
+    assert payload["n_videos_without_predictions"] == 0
+
+
 def test_predictions_of_other_videos_are_valid_but_not_counted():
     meta = meta_frame([meta_row("val", "adl", 300), meta_row("test", "adl", 300)])
     table = pd.concat([predictions("val", [1]), predictions("test", [1])])

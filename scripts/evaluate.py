@@ -30,6 +30,11 @@ def select_videos(meta: pd.DataFrame, splits_path: Path, dataset: str, split: st
     return labeled[labeled["video_id"].isin(splits[dataset][split])]
 
 
+def videos_without_predictions(videos: pd.DataFrame, predictions: pd.DataFrame) -> list[str]:
+    """Các video_id của tập đánh giá không có dòng nào trong predictions, giữ thứ tự của videos."""
+    return videos.loc[~videos["video_id"].isin(predictions["video_id"]), "video_id"].tolist()
+
+
 def format_value(value: object) -> str:
     """Định dạng 1 ô: None thành 'n/a', số thực 3 chữ số."""
     if value is None:
@@ -83,11 +88,16 @@ def main() -> None:
     thr = yaml.safe_load(Path(args.tuned).read_text(encoding="utf-8"))["alarm"]["thr"] if args.tuned else args.thr
     results = [evaluate(predictions, videos, thr, tolerance, args.merge_gap, frame_labels, reference_meta=meta)
                for tolerance in args.T]
+    missing = videos_without_predictions(videos, predictions)
+    if missing:
+        print(f"CẢNH BÁO: {len(missing)} video không có dòng dự đoán nào (tính là không cảnh báo): "
+              f"{', '.join(missing[:5])}")
     print_table(results)
     tag = args.tag or Path(args.pred).stem
     out_path = Path(args.out_dir) / f"{tag}_{args.dataset}_{args.split}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"pred": str(args.pred), "dataset": args.dataset, "split": args.split, "results": results}
+    payload = {"pred": str(args.pred), "dataset": args.dataset, "split": args.split,
+               "n_videos_without_predictions": len(missing), "results": results}
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     n_skipped = predictions.loc[~predictions["video_id"].isin(videos["video_id"]), "video_id"].nunique()
     print(f"\nTÓM TẮT | video đánh giá: {len(videos)} | video có dự đoán ngoài tập, bỏ qua: {n_skipped} | Đã ghi: {out_path}")
