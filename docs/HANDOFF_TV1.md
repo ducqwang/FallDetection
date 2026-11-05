@@ -1,5 +1,5 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: a39a215  |  Cập nhật: 2026-11-05 15:07
+Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: 55e7fec  |  Cập nhật: 2026-11-05 15:07
 
 > Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Output EDA và M1 còn thiếu được liệt kê ở mục "Việc còn tồn đọng". PR vào `main`: https://github.com/ducqwang/FallDetection/pull/1
 
