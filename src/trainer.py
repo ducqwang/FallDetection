@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
+
 def _f1_from_logits(logits, targets, thresh: float = 0.5):
     import torch
     prob = torch.sigmoid(logits)
@@ -20,6 +21,7 @@ def _f1_from_logits(logits, targets, thresh: float = 0.5):
     prec = tp / (tp + fp) if (tp + fp) else 0.0
     rec = tp / (tp + fn) if (tp + fn) else 0.0
     return 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+
 
 def fit(model, loader_train, loader_val, cfg: dict, ckpt_path: str,
         device: str | None = None):
