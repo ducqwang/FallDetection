@@ -4,9 +4,9 @@
 
 | Dataset | URL | Version |
 |---|---|---|
-| urfd_images | https://www.kaggle.com/datasets/shahliza27/ur-fall-detection-dataset | chưa điền trong configs/data.yaml |
-| urfd_labels | https://www.kaggle.com/datasets/minhquang2701/urfall-labels | chưa điền trong configs/data.yaml |
-| le2i | https://www.kaggle.com/datasets/tuyenldvn/falldataset-imvia | chưa điền trong configs/data.yaml |
+| urfd_images | https://www.kaggle.com/datasets/shahliza27/ur-fall-detection-dataset | 1 |
+| urfd_labels | https://www.kaggle.com/datasets/minhquang2701/urfall-labels | 1 |
+| le2i | https://www.kaggle.com/datasets/tuyenldvn/falldataset-imvia | 2 |
 
 ## Số lượng thực tế
 
@@ -89,7 +89,7 @@ Các video sau có hai dòng khoảng ngã nằm giữa file thay vì ở đầu
 - Dòng bbox đã đọc: 42417; bỏ dòng toàn 0: 71; bỏ hộp không còn diện tích sau khi clip: 92.
 - bbox vượt khung là hợp lệ (người bị cắt ở mép), đã clip vào khung hình.
 - `adl_hard_neg = 0` cho toàn bộ Le2i ở giữa kỳ: danh sách video Le2i negative khó chưa có.
-- Le2i chia theo (nhãn, scene), nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test. Kết quả trong cùng bộ Le2i có thể lạc quan. Tập test Le2i rất nhỏ (ước tính khoảng 15 fall và 5 ADL), nên kết quả chính là cross-dataset (`--split all`).
+- Le2i chia theo (nhãn, scene), nên cùng người và cùng cảnh quay có thể nằm ở cả train lẫn test. Kết quả trong cùng bộ Le2i có thể lạc quan. Tập test Le2i rất nhỏ (15 fall và 5 ADL), nên kết quả chính là cross-dataset (`--split all`).
 
 ## Quy ước
 

@@ -1,14 +1,14 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: e773247  |  Cập nhật: 2026-11-05 01:34
+Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: a39a215  |  Cập nhật: 2026-11-05 15:07
 
-> Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Mọi output cần dataset được liệt kê ở mục "Việc còn tồn đọng".
+> Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Output EDA và M1 còn thiếu được liệt kê ở mục "Việc còn tồn đọng". PR vào `main`: https://github.com/ducqwang/FallDetection/pull/1
 
 ## Trạng thái từng Việc
 | Việc | Trạng thái | Đã chạy trên dữ liệu thật? | Ghi chú |
 |---|---|---|---|
 | 0. Notebook kiểm tra | xong | chưa | Đã thêm 2 notebook, giữ nguyên source, xóa output. Agent không chạy lại; bản gốc đã được TV1 chạy trên Kaggle |
-| 1. prepare_data | một phần | chỉ dữ liệu giả | TV1 chạy trên Kaggle, dừng ở `parse_annotation` với dòng `197`. Đã sửa, bản sửa chỉ chạy trên dữ liệu giả, chưa chạy lại trên Kaggle |
-| 2. split | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có `splits.json` thật |
+| 1. prepare_data | xong | có | TV1 chạy trên Kaggle sau khi sửa lỗi `parse_annotation` với dòng `197`. `metadata.csv` và `DATA_CARD.md` thật đã ở `dataset_index/` |
+| 2. split | xong | có | `splits.json` thật đã ở `dataset_index/`, seed 42, tỉ lệ 70/15/15 |
 | 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có hình minh họa augmentation thật |
 | 4. EDA | một phần | chỉ dữ liệu giả | Code xong. Chưa có 5 hình thật trong `reports/figures/` |
 | 5. M1 | một phần | chỉ dữ liệu giả | Code xong. Ngưỡng chưa tune. `make_tracks_tmp.py` đã chạy với YOLO thật trên 1 ảnh mẫu, không phải dataset |
@@ -47,6 +47,8 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: e773247  |  Cập nhật: 2026-11-
 | `docs/SCHEMA.md`, `docs/EVAL_PROTOCOL.md` | Định dạng file, giao thức đánh giá | | | |
 
 ## Cách chạy (lệnh y nguyên, theo thứ tự, trên Kaggle)
+Bước 1 đến 3 đã xong, còn bước 4 và 5, rồi commit output ở bước 6.
+
 1. Điền `version` của 3 dataset vào `configs/data.yaml`, push lên nhánh.
 2. `notebooks/00_prepare_data.ipynb`: Add Input 3 dataset gốc, bật Internet, không cần GPU, Run All. Lệnh chính:
    ```
@@ -57,7 +59,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: e773247  |  Cập nhật: 2026-11-
 4. `notebooks/tv1_01_eda.ipynb`: Add Input dataset vừa tạo, bật Internet, không cần GPU, Run All.
 5. `notebooks/02_m1_baseline.ipynb`: Add Input dataset vừa tạo, bật GPU và Internet, Run All.
 6. Tải về và commit lên nhánh: `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `dataset_index/`; `reports/figures/*.png`; `reports/results/*`. Không dùng thư mục `data/` vì đã bị `.gitignore` chặn.
-7. Mở Pull Request vào `main` theo checklist mục 7 của prompt.
+7. Pull Request vào `main`: đã mở (PR #1). Commit output lên nhánh này thì PR tự cập nhật.
 
 | Bước | Internet | GPU | Thời gian (ước tính, chưa đo) | Ghi ra /kaggle/working (ước tính, chưa đo) |
 |---|---|---|---|---|
@@ -66,17 +68,21 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: e773247  |  Cập nhật: 2026-11-
 | 02_m1_baseline | có | có | 30–60 phút | dưới 200 MB |
 
 ## Số liệu thật đã kiểm tra
-Đo trên máy local, ảnh và video giả, **2 CSV nhãn URFD là thật**. Lệnh: `python tests/fake_kaggle.py <thư mục> --urfd-falls urfall-cam0-falls.csv --urfd-adls urfall-cam0-adls.csv`, sau đó `python -m src.data.prepare_data --config <thư mục>/data.yaml --workers 6`.
+Từ `dataset_index/` do TV1 chạy trên Kaggle:
+- Tổng 200 video: URFD 70 (30 fall, 40 ADL), Le2i 130 (99 fall, 31 ADL). Tổng số frame URFD 11936.
+- Le2i: `header_top` 127, `header_mid` 3; 42417 dòng bbox đã đọc, bỏ 71 dòng toàn 0, bỏ 92 hộp không còn diện tích sau khi clip.
+- Split (fall/ADL): URFD train 21/28, val 4/6, test 5/6; Le2i train 69/22, val 15/4, test 15/5.
+
+Đo trước đó trên máy local, ảnh và video giả, **2 CSV nhãn URFD là thật**. Lệnh: `python tests/fake_kaggle.py <thư mục> --urfd-falls urfall-cam0-falls.csv --urfd-adls urfall-cam0-adls.csv`, sau đó `python -m src.data.prepare_data --config <thư mục>/data.yaml --workers 6`.
 - URFD: 70 chuỗi (30 fall, 40 ADL); trạng thái `OK` 52, `CSV_THIEU_FRAME` 18; `adl_hard_neg = 1`: 16; 11544 dòng nhãn; `fall-16` có `fall_start_frame = 16`, `fall_end_frame = 46`; `adl-17` có 52 frame NaN.
 - Tổng số ảnh 11936 khớp output notebook `check_urfd_structure_v2`, nhưng số ảnh được dựng lại từ CSV và bảng trong notebook đó, không phải đếm trên ảnh thật.
-- Le2i: agent chưa đo trên video thật. Số 130 video, 99 fall, 31 ADL và 3 video `header_mid` do TV1 kiểm tra trên dữ liệu thật; bản sửa chưa chạy lại trên Kaggle.
-- Lỗi thật đầu tiên trên Kaggle (TV1 báo): `parse_annotation` dừng ở `dòng bbox không đủ 6 cột: '197'`, file Coffee_room_01 video (26).
+- Lỗi thật đầu tiên trên Kaggle (TV1 báo, đã sửa): `parse_annotation` dừng ở `dòng bbox không đủ 6 cột: '197'`, file Coffee_room_01 video (26).
 - Chất lượng M1 (P, R, F1, FAR, latency): chưa đo.
 
 - Dữ liệu tổng hợp, không phải dataset (đo bằng đoạn lệnh tạm trước khi sửa; tính chất tương ứng được kiểm tra trong `tests/test_m1.py`): `aspect` đứng 0.353, nằm 2.833; tại frame vừa nằm `posture_score` = 1.0. Khoảng trống 10 frame: `vy` lớn nhất 0.1765, bằng lúc không có khoảng trống; nếu tính theo số dòng sẽ là 2.75.
 - YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python -m pytest tests -q`: 145 pass, 0 fail (phần lớn dữ liệu giả; 1 file end-to-end cần ffmpeg). `python tests/smoke_test.py`: 18/18.
+Test: `python3 -m pytest tests -q`: 136 pass, 9 skip, 0 fail (phần lớn dữ liệu giả). Cả 9 test skip ở `tests/test_pipeline_fake.py` vì máy chạy không có ffmpeg; lần chạy trước có ffmpeg đạt 145 pass. `python3 tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
 - Prompt phiên bản 5 có 3 video chưa xác định, 127 video có nhãn, schema không có `label_source`, `aux_code` → đổi theo chỉ đạo mới của TV1: 130 video, thêm 2 cột → `docs/PROMPT_TV1_GiuaKy.md` không có trong repo, bản trên máy agent vẫn là phiên bản 5, nên agent làm theo tóm tắt 6 mục của TV1.
@@ -100,28 +106,25 @@ Test: `python -m pytest tests -q`: 145 pass, 0 fail (phần lớn dữ liệu gi
 - M1 chỉ dùng quá khứ, nên điểm tính được khi video đang chạy.
 - Thành phần bất động của M1: số giây bất động liên tục từ khi tư thế đổi, chia cho `immobile_s`, tối đa bằng 1; chỉ cộng điểm, không bắt buộc.
 - Khoảng trống track dài hơn `max_gap_s = 0.5` giây: tách đoạn, reset trạng thái, không xuất điểm trong khoảng trống; ngắn hơn: nội suy tuyến tính.
-- Kiểm tra `n_bbox_rows`, `n_bbox_zero_rows`, `fall_len_frames` chỉ áp dụng cho video `header_top`, vì các số 39970, 71 và 7/23.5/45 được đo trên nhóm này; chưa có số đo cho 130 video.
+- Kiểm tra `n_bbox_rows`, `n_bbox_zero_rows`, `fall_len_frames` chỉ áp dụng cho video `header_top`, vì các số 39970, 71 và 7/23.5/45 được đo trên nhóm này; số đo cho 130 video nằm trong `DATA_CARD.md`.
 - Lưu file nhỏ của dữ liệu vào `dataset_index/`, vì thư mục tên `data/` bị `.gitignore` chặn.
 - Trọng số M1 cố định 0.30/0.10/0.45/0.15, không nằm trong lưới tune, để lưới nhỏ và dễ giải thích.
 - Giữ `conf = 0.25` và `yolo11n.pt` theo `configs/default.yaml`.
 
 ## Việc còn tồn đọng / rủi ro đã biết
 Output cần dataset, TV1 tự chạy (theo checklist mục 7):
-- `metadata.csv`, `annotations/*.csv`, `splits.json`, `DATA_CARD.md`, `videos/*.mp4` thật.
 - 5 biểu đồ EDA và `augment_demo.png` trong `reports/figures/`.
 - `tracks.parquet`, `predictions.csv`, bảng Precision/Recall/F1/FAR/latency và kết quả ADL negative khó trong `reports/results/`.
-- Pull Request vào `main`: mở sau khi có các output trên.
+- Đã có: `metadata.csv`, `splits.json`, `DATA_CARD.md` trong `dataset_index/`; PR #1 mở trước khi có các output trên, nên phải commit bổ sung hoặc mở PR sau.
 
 Rủi ro đã biết:
-- Pipeline mới chạy thật tới `parse_annotation`; các bước sau chưa từng chạy trên dữ liệu thật, có thể lộ lỗi mới. Số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch; annotation hoặc video lỗi được in đủ một lần.
-- Dữ liệu fake có cặp giữa file theo mẫu của TV1; 3 file thật chưa được parser mới đọc thử.
+- `prepare_data` và `split` đã chạy thật; EDA, tracking và M1 chưa từng chạy trên dữ liệu thật, có thể lộ lỗi mới. Khi chạy lại, số liệu lệch thì `prepare_data` dừng và in từng chỗ lệch; annotation hoặc video lỗi được in đủ một lần.
 - Ngưỡng mặc định trong `configs/m1.yaml` là giá trị khởi đầu, chưa kiểm chứng trên dữ liệu thật. Chất lượng M1 chưa đo.
-- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. Notebook kiểm tra đo số frame khớp 190/190 nên dự kiến không gặp. `avi_to_mp4` giữ nguyên tham số của prompt, không thêm cờ trước khi có lỗi thật.
-- Nếu mp4 lệch số frame ở bước chạy thật đầu tiên: `_verify_mp4` trong `src/data/prepare_data.py` in tên video, số frame nguồn, số frame mp4, kèm gợi ý `thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)` cho Le2i, rồi `convert_videos` in mọi video lệch và dừng. Test: `test_le2i_frame_mismatch_names_video_counts_and_hint`.
+- Le2i thật có audio mp3. Khi thử, ffmpeg tạo AVI mp3 có packet rỗng làm mp4 dư 1 frame. `prepare_data` đã chạy xong trên dữ liệu thật nên chưa gặp lỗi này. `avi_to_mp4` giữ nguyên tham số của prompt, không thêm cờ trước khi có lỗi thật.
+- Nếu mp4 lệch số frame khi chạy lại: `_verify_mp4` trong `src/data/prepare_data.py` in tên video, số frame nguồn, số frame mp4, kèm gợi ý `thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)` cho Le2i, rồi `convert_videos` in mọi video lệch và dừng. Test: `test_le2i_frame_mismatch_names_video_counts_and_hint`.
 - Khi tune M1, để ý frame người mới vào khung: bbox lớn dần và bị cắt mép có thể làm vận tốc dọc tăng giả, gây FP. Chưa xử lý vì chưa thấy trên dữ liệu thật. Nếu thấy, thêm quy tắc bỏ qua vài frame đầu của mỗi track.
 - M1 khó thấy người ngã thẳng về phía camera vì w/h ít đổi.
 - Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
-- Thay đổi chưa commit ở `src/trainer.py` (chỉ khoảng trắng) không phải của nhánh này, được để nguyên.
 
 ## Quyết định của TV1 đã chốt
 1. FAR báo cáo chính là `far_nonfall_per_hour`; `far_per_hour` là số phụ. Ghi ở `docs/EVAL_PROTOCOL.md`.
@@ -142,5 +145,4 @@ TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không s�
 | `src/datasets.py:43` | `return [(0, max(1, n_frames - 1))]` | Coi cả chuỗi URFD là một sự kiện; định nghĩa mới dùng `fall_start_frame`, `fall_end_frame` trong `metadata.csv` |
 
 ## Câu hỏi cho TV1
-1. Version của 3 dataset Kaggle là bao nhiêu? (điền vào `configs/data.yaml`)
-2. Có thể đưa bản prompt mới nhất vào repo tại `docs/PROMPT_TV1_GiuaKy.md` không, để agent đối chiếu nguyên văn?
+1. Có thể đưa bản prompt mới nhất vào repo tại `docs/PROMPT_TV1_GiuaKy.md` không, để agent đối chiếu nguyên văn?
