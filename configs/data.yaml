@@ -3,24 +3,24 @@ seed: 42
 split_ratio: [0.70, 0.15, 0.15]
 
 paths:
-  input_root: /kaggle/input          # chỉ đọc
+  input_root: /kaggle/input # chỉ đọc
   out_root: /kaggle/working/nhom05-falldet-processed
-  urfd_root: null                    # thư mục cha chứa 70 thư mục chuỗi
-  urfd_csv_falls: null               # .../urfall-cam0-falls.csv
-  urfd_csv_adls: null                # .../urfall-cam0-adls.csv
-  le2i_root: null                    # thư mục chứa Coffee_room_01, Home_01, ...
+  urfd_root: null # thư mục cha chứa 70 thư mục chuỗi
+  urfd_csv_falls: null # .../urfall-cam0-falls.csv
+  urfd_csv_adls: null # .../urfall-cam0-adls.csv
+  le2i_root: null # thư mục chứa Coffee_room_01, Home_01, ...
 
 # Nguồn dữ liệu, ghi vào DATA_CARD.md. TV1 điền version đang dùng (mục Data của notebook Kaggle).
 dataset_sources:
   urfd_images:
     url: https://www.kaggle.com/datasets/shahliza27/ur-fall-detection-dataset
-    version: null
+    version: 01
   urfd_labels:
     url: https://www.kaggle.com/datasets/minhquang2701/urfall-labels
-    version: null
+    version: 01
   le2i:
     url: https://www.kaggle.com/datasets/tuyenldvn/falldataset-imvia
-    version: null
+    version: 02
 
 # Số liệu đã kiểm tra thật (mục 2.1, 2.2 của prompt). Lệch thì prepare_data dừng và báo TV1.
 expect:
@@ -31,15 +31,35 @@ expect:
     size: [640, 480]
     n_images_min: 55
     n_images_max: 400
-    fall_label0_len: 30              # nhãn 0 dài đúng 30 frame ở mọi chuỗi Fall
+    fall_label0_len: 30 # nhãn 0 dài đúng 30 frame ở mọi chuỗi Fall
     n_adl_hard_neg: 16
-    adl_csv_thieu_frame: [adl-01, adl-02, adl-06, adl-08, adl-13, adl-15, adl-16, adl-17, adl-18,
-                          adl-19, adl-20, adl-21, adl-30, adl-36, adl-37, adl-38, adl-39, adl-40]
-    fall_short_after_lying: [fall-13, fall-15, fall-16, fall-17, fall-21, fall-25, fall-27, fall-28]
+    adl_csv_thieu_frame:
+      [
+        adl-01,
+        adl-02,
+        adl-06,
+        adl-08,
+        adl-13,
+        adl-15,
+        adl-16,
+        adl-17,
+        adl-18,
+        adl-19,
+        adl-20,
+        adl-21,
+        adl-30,
+        adl-36,
+        adl-37,
+        adl-38,
+        adl-39,
+        adl-40,
+      ]
+    fall_short_after_lying:
+      [fall-13, fall-15, fall-16, fall-17, fall-21, fall-25, fall-27, fall-28]
     short_after_lying_frames: 15
   le2i:
     n_total_folder: 190
-    excluded: {lecture_room: 27, office: 33}
+    excluded: { lecture_room: 27, office: 33 }
     # "scene|part": [số video, fall, adl]
     per_part:
       "coffee_room|01": [48, 48, 0]
@@ -48,14 +68,17 @@ expect:
       "home|02": [30, 7, 23]
     # 3 video có cặp khoảng ngã ở giữa file. start, end là frame gốc từ 1; lines là số dòng trong file, từ 1.
     header_mid:
-      "coffee_room|01|26": {start: 197, end: 227, lines: [219, 220], last_frame: 278}
-      "coffee_room|02|50": {start: 1816, end: 1852, lines: [1894, 1895], last_frame: 1954}
-      "coffee_room|02|52": {start: 87, end: 113, lines: [156, 157], last_frame: 215}
-    fps: {coffee_room: 25, home: 24}
+      "coffee_room|01|26":
+        { start: 197, end: 227, lines: [219, 220], last_frame: 278 }
+      "coffee_room|02|50":
+        { start: 1816, end: 1852, lines: [1894, 1895], last_frame: 1954 }
+      "coffee_room|02|52":
+        { start: 87, end: 113, lines: [156, 157], last_frame: 215 }
+    fps: { coffee_room: 25, home: 24 }
     sizes: [[320, 240], [320, 180]]
     small_size: [320, 180]
-    n_small_size: {"home|01": 19, "home|02": 6}
+    n_small_size: { "home|01": 19, "home|02": 6 }
     # Ba số dưới đây đo trên các video label_source = header_top, chưa đo lại cho 3 video header_mid.
     n_bbox_rows: 39970
     n_bbox_zero_rows: 71
-    fall_len_frames: {min: 7, median: 23.5, max: 45}
+    fall_len_frames: { min: 7, median: 23.5, max: 45 }
