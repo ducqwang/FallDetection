@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .frame_size import size_block
+
 MISSING_VERSION = "chưa điền trong configs/data.yaml"
 LICENSES = """## Giấy phép và trích dẫn
 
@@ -117,5 +119,5 @@ def build_data_card(meta: pd.DataFrame, sequences: list[dict], videos: list[dict
     short_frames là ngưỡng số frame sau khi nằm dùng để liệt kê chuỗi Fall ngắn.
     """
     sections = ["# DATA CARD — nhom05-falldet-processed\n", _sources_section(sources), _counts_section(meta),
-                _checks_section(check_lines), _urfd_section(sequences, short_frames), EXCLUSION, _le2i_section(videos, bbox_stats), CONVENTIONS, LICENSES]
+                _checks_section(check_lines), size_block(meta), _urfd_section(sequences, short_frames), EXCLUSION, _le2i_section(videos, bbox_stats), CONVENTIONS, LICENSES]
     return "\n".join(sections)

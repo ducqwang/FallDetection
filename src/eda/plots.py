@@ -8,54 +8,23 @@ Ví dụ: python -m src.eda.plots --meta metadata.csv --gt-bbox annotations/le2i
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import yaml  # noqa: E402
-from sklearn.decomposition import PCA  # noqa: E402
-from sklearn.manifold import TSNE  # noqa: E402
-from sklearn.preprocessing import StandardScaler  # noqa: E402
+import numpy as np
+import pandas as pd
+import yaml
 
-from ..data.common import METADATA_DTYPES  # noqa: E402
-from .window_features import build_window_features  # noqa: E402
-
-DPI = 200
-SURFACE, INK, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
-COLOR_FALL, COLOR_ADL, COLOR_HARD = "#eb6834", "#2a78d6", "#1baf7a"
-DATASET_NAMES = {"urfd": "URFD", "le2i": "Le2i"}
-MAX_POINTS_PER_CLASS = 1500
-MIN_INSIDE_LABEL = 4  # đoạn cột thấp hơn số clip này không đủ chỗ ghi số bên trong
-plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "figure.facecolor": SURFACE,
-                     "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE, "text.color": INK,
-                     "axes.edgecolor": GRID, "axes.labelcolor": MUTED, "xtick.color": MUTED, "ytick.color": MUTED,
-                     "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.8, "axes.axisbelow": True,
-                     "axes.spines.top": False, "axes.spines.right": False, "legend.frameon": False})
-
-
-def _save(figure: plt.Figure, out_path: Path) -> Path:
-    figure.tight_layout()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(out_path, dpi=DPI)
-    plt.close(figure)
-    return out_path
-
+from ..data.common import METADATA_DTYPES
+from ..data.frame_size import DEFAULT_WARNING_THRESHOLD, scene_size_table
+from .embedding import plot_embedding, plot_embedding_pair  # noqa: F401  (plot_embedding giữ ở đây cho nơi gọi cũ)
+from .size_check import measure_size_separation, update_data_card
+from .style import (COLOR_ADL, COLOR_FALL, COLOR_HARD, DATASET_NAMES, _bar_labels, _save, plt)
+from .window_features import build_window_features
 
 def _labeled(meta: pd.DataFrame) -> pd.DataFrame:
     """Chỉ giữ video has_event_label = 1."""
     return meta[meta["has_event_label"] == 1]
-
-
-def _bar_labels(axis: plt.Axes, positions, bottoms, heights) -> None:
-    """Ghi số vào giữa từng đoạn cột; đoạn quá mỏng ghi ngay trên đoạn, bỏ qua đoạn bằng 0."""
-    for position, bottom, height in zip(positions, bottoms, heights):
-        if height >= MIN_INSIDE_LABEL:
-            axis.text(position, bottom + height / 2, str(int(height)), ha="center", va="center", color="white", fontsize=9)
-        elif height > 0:
-            axis.text(position, bottom + height, str(int(height)), ha="center", va="bottom", color=INK, fontsize=9)
 
 
 def plot_clip_counts(meta: pd.DataFrame, out_path: Path) -> Path:
@@ -148,45 +117,32 @@ def plot_scene_distribution(meta: pd.DataFrame, out_path: Path) -> Path:
     return _save(figure, out_path)
 
 
-def _balanced_sample(y: np.ndarray, seed: int) -> np.ndarray:
-    """Chọn tối đa MAX_POINTS_PER_CLASS điểm mỗi lớp để t-SNE chạy nhanh và lớp ít không bị che."""
-    rng = np.random.default_rng(seed)
-    picked = [rng.permutation(np.flatnonzero(y == label))[:MAX_POINTS_PER_CLASS] for label in (0, 1)]
-    return np.sort(np.concatenate(picked))
+def export_scene_size_table(meta: pd.DataFrame, out_csv: Path) -> Path:
+    """Lưu bảng scene × kích thước × lớp của Le2i thành CSV."""
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    scene_size_table(meta).to_csv(out_csv, index=False)
+    return out_csv
 
 
-def plot_embedding(X: np.ndarray, y: np.ndarray, feature_source: str, out_path: Path,
-                   perplexity: float = 30.0, seed: int = 42) -> Path:
-    """Biểu đồ 5: PCA và t-SNE về 2D, tô màu fall/non-fall.
-
-    X: ma trận N×D bất kỳ. y: 0/1. Trên hình ghi rõ nguồn đặc trưng, perplexity và seed.
-    """
-    chosen = _balanced_sample(y, seed)
-    scaled = StandardScaler().fit_transform(X[chosen])
-    labels = y[chosen]
-    used_perplexity = min(perplexity, (len(chosen) - 1) / 3)
-    pca = PCA(n_components=2, random_state=seed)
-    pca_points = pca.fit_transform(scaled)
-    tsne_points = TSNE(n_components=2, perplexity=used_perplexity, init="pca", random_state=seed).fit_transform(scaled)
-    panels = {f"PCA (giải thích {pca.explained_variance_ratio_.sum():.0%} phương sai)": pca_points,
-              f"t-SNE (perplexity={used_perplexity:g})": tsne_points}
-    figure, axes = plt.subplots(1, 2, figsize=(10, 4.6))
-    for axis, (title, points) in zip(axes, panels.items()):
-        for label, name, color in ((0, "Không té ngã", COLOR_ADL), (1, "Té ngã", COLOR_FALL)):
-            mask = labels == label
-            axis.scatter(points[mask, 0], points[mask, 1], s=10, alpha=0.65, color=color, linewidths=0,
-                         label=f"{name} (n={int(mask.sum())})")
-        axis.set_title(title, fontsize=10, loc="left")
-        axis.set_xlabel("Thành phần 1")
-        axis.set_ylabel("Thành phần 2")
-        axis.legend(fontsize=8)
-    figure.suptitle(f"Nguồn đặc trưng: {feature_source} | seed={seed}", fontsize=10, x=0.01, ha="left")
+def plot_scene_size_table(meta: pd.DataFrame, out_path: Path) -> Path:
+    """Biểu đồ 6: số video Le2i theo scene/phần × kích thước, chồng fall và ADL."""
+    table = scene_size_table(meta)
+    names = [f"{row.scene.replace('_', ' ')} {row.scene_part}\n{row.size}".replace("  ", " ") for row in table.itertuples()]
+    figure, axis = plt.subplots(figsize=(7.2, 4))
+    axis.bar(names, table["fall"], color=COLOR_FALL, width=0.65, label="Té ngã")
+    axis.bar(names, table["adl"], bottom=table["fall"], color=COLOR_ADL, width=0.65, label="ADL")
+    _bar_labels(axis, range(len(names)), np.zeros(len(names)), table["fall"].to_numpy())
+    _bar_labels(axis, range(len(names)), table["fall"].to_numpy(), table["adl"].to_numpy())
+    axis.set_ylabel("Số video Le2i")
+    axis.grid(axis="x", visible=False)
+    axis.set_title("Le2i: scene × kích thước khung × lớp", fontsize=10, loc="left")
+    axis.legend()
     return _save(figure, out_path)
 
 
 def main() -> None:
-    """Vẽ 5 biểu đồ từ metadata và nguồn bbox."""
-    parser = argparse.ArgumentParser(description="Vẽ 5 biểu đồ EDA.")
+    """Vẽ các biểu đồ EDA, xuất bảng kích thước khung và ghi cảnh báo kích thước vào DATA_CARD nếu có --data-card."""
+    parser = argparse.ArgumentParser(description="Vẽ biểu đồ EDA (1-5, 5b theo kích thước, 6 bảng kích thước).")
     parser.add_argument("--meta", required=True, help="metadata.csv")
     parser.add_argument("--out-dir", default="reports/figures", help="thư mục lưu PNG")
     parser.add_argument("--gt-bbox", required=True, help="le2i_gt_bbox.csv")
@@ -196,6 +152,10 @@ def main() -> None:
     parser.add_argument("--stride-s", type=float, default=0.25, help="bước trượt (giây)")
     parser.add_argument("--perplexity", type=float, default=30.0, help="perplexity của t-SNE")
     parser.add_argument("--seed", type=int, default=42, help="seed")
+    parser.add_argument("--results-dir", default="reports/results", help="thư mục lưu CSV bảng kích thước và độ tách")
+    parser.add_argument("--data-card", help="DATA_CARD.md; có thì ghi bảng kích thước và cảnh báo độ tách vào khối riêng")
+    parser.add_argument("--size-warn", type=float, default=DEFAULT_WARNING_THRESHOLD,
+                        help="ngưỡng silhouette theo kích thước để ghi cảnh báo")
     args = parser.parse_args()
     meta = pd.read_csv(args.meta, dtype=METADATA_DTYPES)
     out_dir = Path(args.out_dir)
@@ -205,10 +165,24 @@ def main() -> None:
     config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
     gt_boxes = pd.read_csv(args.gt_bbox)
     boxes = pd.read_parquet(args.tracks) if args.tracks else gt_boxes
-    X, y, names = build_window_features(boxes, meta, args.window_s, args.stride_s, config["signals"],
-                                        config["rules"]["still_speed"], gt_boxes if args.tracks else None)
+    X, y, names, sizes = build_window_features(boxes, meta, args.window_s, args.stride_s, config["signals"],
+                                               config["rules"]["still_speed"], gt_boxes if args.tracks else None, with_size=True)
     source = f"{len(names)} đặc trưng hình học, cửa sổ {args.window_s:g} s, bbox từ {'tracks cache' if args.tracks else 'Le2i GT'}"
-    written.append(plot_embedding(X, y, source, out_dir / "eda_5_pca_tsne.png", args.perplexity, args.seed))
+    written += plot_embedding_pair(X, y, sizes, source, out_dir, args.perplexity, args.seed)
+    written.append(plot_scene_size_table(meta, out_dir / "eda_6_le2i_scene_size.png"))
+    written.append(export_scene_size_table(meta, Path(args.results_dir) / "le2i_scene_size_table.csv"))
+    in_le2i = np.isin(sizes, scene_size_table(meta)["size"].unique())  # độ tách chỉ đo trên các kích thước của Le2i
+    separation = None
+    if len(set(sizes[in_le2i])) >= 2:
+        separation = measure_size_separation(X[in_le2i], y[in_le2i], sizes[in_le2i], args.seed)
+        out_json = Path(args.results_dir) / "size_separation.json"
+        out_json.write_text(json.dumps(separation, ensure_ascii=False, indent=2), encoding="utf-8")
+        written.append(out_json)
+        print(f"ĐỘ TÁCH THEO KÍCH THƯỚC | {separation}")
+    else:
+        print("ĐỘ TÁCH THEO KÍCH THƯỚC | bỏ qua: cửa sổ chỉ có 1 kích thước khung")
+    if args.data_card:
+        written.append(update_data_card(args.data_card, meta, separation, args.size_warn))
     n_unlabeled = int((meta["has_event_label"] == 0).sum())
     print(f"TÓM TẮT | video trong metadata: {len(meta)} | cửa sổ: {len(y)} (té ngã {int(y.sum())}) "
           f"| bỏ qua ở biểu đồ 1-3, 5: {n_unlabeled} (has_event_label = 0) | Đã ghi: "
