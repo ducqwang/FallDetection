@@ -124,7 +124,8 @@ def test_m1_gt_mode_evaluate_and_eda(processed, tmp_path):
     payload = json.loads((tmp_path / "pred_le2i_test.json").read_text(encoding="utf-8"))
     assert [item["params"]["tolerance_s"] for item in payload["results"]] == [0.5, 1.0]
     run("-m", "src.eda.plots", "--meta", str(meta_path), "--gt-bbox", str(gt), "--out-dir", str(tmp_path / "fig"), "--window-s", "0.5")
-    assert len(list((tmp_path / "fig").glob("eda_*.png"))) == 5
+    assert len(list((tmp_path / "fig").glob("eda_*.png"))) == 7  # 5 hình + 5b theo kích thước + 6 bảng kích thước
+    assert (tmp_path / "fig" / "eda_5b_pca_tsne_by_size.png").exists()
 
 
 def test_png_order_is_numeric_and_frames_are_exact(tmp_path):

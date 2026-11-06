@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..data.frame_size import size_label
 from ..data.labels import select_main_track, window_label
 from ..models.m1_features import seconds_to_frames, split_at_long_gaps, track_signals
 
@@ -46,8 +47,10 @@ def video_windows(track: pd.DataFrame, row: pd.Series, window_s: float, stride_s
 
 def build_window_features(boxes: pd.DataFrame, meta: pd.DataFrame, window_s: float, stride_s: float,
                           signal_params: dict, still_speed: float,
-                          gt_boxes: pd.DataFrame | None = None) -> tuple[np.ndarray, np.ndarray, list[str]]:
+                          gt_boxes: pd.DataFrame | None = None, with_size: bool = False):
     """Ghép đặc trưng mọi video has_event_label = 1 có bbox.
+
+    Trả về (X, y, names); with_size = True thì trả thêm mảng kích thước khung '320×180' của từng cửa sổ (X, y, names, sizes).
 
     boxes cần cột video_id, frame_idx (0-based), x1, y1, x2, y2 (pixel); có track_id thì chọn track chính.
     window_s, stride_s tính bằng giây; still_speed tính bằng chiều cao người/giây.
@@ -56,6 +59,7 @@ def build_window_features(boxes: pd.DataFrame, meta: pd.DataFrame, window_s: flo
     usable = meta[meta["has_event_label"] == 1].set_index("video_id", drop=False)
     all_vectors: list[np.ndarray] = []
     all_labels: list[int] = []
+    all_sizes: list[str] = []
     for video_id, track in boxes[boxes["video_id"].isin(usable.index)].groupby("video_id", sort=True):
         row = usable.loc[video_id]
         if "track_id" in track:
@@ -64,6 +68,8 @@ def build_window_features(boxes: pd.DataFrame, meta: pd.DataFrame, window_s: flo
         vectors, labels = video_windows(track, row, window_s, stride_s, signal_params, still_speed)
         all_vectors += vectors
         all_labels += labels
+        all_sizes += [size_label(row["width"], row["height"])] * len(labels)
     if not all_vectors:
         raise ValueError("Không có cửa sổ nào: kiểm tra nguồn bbox và window_s")
-    return np.vstack(all_vectors), np.array(all_labels, dtype=int), FEATURE_NAMES
+    X, y = np.vstack(all_vectors), np.array(all_labels, dtype=int)
+    return (X, y, FEATURE_NAMES, np.array(all_sizes)) if with_size else (X, y, FEATURE_NAMES)

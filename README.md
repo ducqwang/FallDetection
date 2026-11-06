@@ -53,7 +53,7 @@ Lệnh tương ứng:
 ```bash
 python -m src.data.prepare_data --config configs/data.yaml --out-root $OUT --workers 4
 python -m src.data.split --meta $OUT/metadata.csv --out $OUT/splits.json --seed 42
-python -m src.eda.plots --meta $OUT/metadata.csv --gt-bbox $OUT/annotations/le2i_gt_bbox.csv --out-dir reports/figures
+python -m src.eda.plots --meta $OUT/metadata.csv --gt-bbox $OUT/annotations/le2i_gt_bbox.csv --out-dir reports/figures --results-dir reports/results --data-card DATA_CARD.md
 python scripts/make_tracks_tmp.py --meta $OUT/metadata.csv --out tracks.parquet   # tạm thời, thay bằng tracks của TV2
 python scripts/tune_m1.py --tracks tracks.parquet --meta $OUT/metadata.csv --dataset urfd --out reports/results/m1_tuned_urfd.yaml
 python -m src.models.m1_rule --tracks tracks.parquet --meta $OUT/metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out predictions.csv

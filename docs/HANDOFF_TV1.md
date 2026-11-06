@@ -10,7 +10,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-
 | 1. prepare_data | xong | có | TV1 chạy trên Kaggle sau khi sửa lỗi `parse_annotation` với dòng `197`. `metadata.csv` và `DATA_CARD.md` thật đã ở `dataset_index/` |
 | 2. split | xong | có | `splits.json` thật đã ở `dataset_index/`, seed 42, tỉ lệ 70/15/15 |
 | 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có hình minh họa augmentation thật |
-| 4. EDA | một phần | chỉ dữ liệu giả | Code xong. Chưa có 5 hình thật trong `reports/figures/` |
+| 4. EDA | một phần | chỉ dữ liệu giả | Code xong, đã thêm bảng kích thước, `color_by` và đo độ tách. Chưa có hình thật trong `reports/figures/` |
 | 5. M1 | một phần | chỉ dữ liệu giả | Code xong. Ngưỡng chưa tune. `make_tracks_tmp.py` đã chạy với YOLO thật trên 1 ảnh mẫu, không phải dataset |
 | 6. Bộ đánh giá | một phần | chỉ dữ liệu giả | Code và unit test xong. Chưa có bảng kết quả thật |
 
@@ -33,7 +33,11 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-
 | `src/data/augment.py` | Tăng cường khi train | `augment_clip(clip, config, seed)`, `save_augment_preview(clip, out)` | clip T×H×W×3 | clip, PNG |
 | `src/data/env_info.py` | Ô đầu notebook | `setup_notebook(config, seed)` | yaml | in version |
 | `src/eda/window_features.py` | Đặc trưng theo cửa sổ | `build_window_features(...)` | bbox, metadata | X, y |
-| `src/eda/plots.py` | CLI Việc 4 | `plot_*`, `plot_embedding(X, y, source, out, perplexity, seed)`; `--meta --gt-bbox --tracks --out-dir` | metadata, bbox | 5 PNG |
+| `src/eda/plots.py` | CLI Việc 4 | `plot_*`, `plot_scene_size_table`, `export_scene_size_table`, `plot_embedding_pair`; `--meta --gt-bbox --tracks --out-dir --results-dir --data-card --size-warn` | metadata, bbox | 7 PNG (1–5, 5b, 6), CSV bảng kích thước, `size_separation.json`, khối trong DATA_CARD |
+| `src/eda/embedding.py` | PCA/t-SNE | `plot_embedding(X, y, source, out, perplexity, seed, color_by='label'\|'size', sizes)`, `plot_embedding_pair` | X, y, sizes | PNG |
+| `src/eda/size_check.py` | Đo độ tách theo kích thước, ghi DATA_CARD | `measure_size_separation(X, y, sizes)`, `update_data_card(path, meta, separation)` | X, y, sizes | dict, Markdown |
+| `src/eda/style.py` | Bảng màu, lưu hình dùng chung | | | |
+| `src/data/frame_size.py` | Bảng scene × kích thước × lớp, khối cảnh báo | `scene_size_table(meta)`, `size_block(meta, separation)` | metadata | DataFrame, Markdown |
 | `src/models/m1_features.py` | Tín hiệu theo track | `split_at_long_gaps(track, fps, max_gap_s)`, `track_signals(track, fps, smooth_s, reference_s)` | track | DataFrame |
 | `src/models/m1_rule.py` | CLI M1 | `predict`, `score_signals`, `posture_score`; `--tracks \| --gt-bbox --meta --out --tuned` | tracks | `predictions.csv` |
 | `src/eval/event_metrics.py` | Độ đo sự kiện | `find_alarms`, `match_alarms`, `evaluate(pred, meta_rows, thr, tolerance_s, merge_gap_s, frame_labels, reference_meta)` | dự đoán, metadata | dict |
@@ -141,12 +145,31 @@ Rủi ro đã biết:
 
 7. Le2i dùng đủ 130 video (99 fall, 31 ADL), `has_event_label = 1` cho tất cả, không còn khái niệm video chưa xác định. 3 video có cặp khoảng ngã giữa file có `label_source = header_mid`: `le2i_coffee_room01_026`, `le2i_coffee_room02_050`, `le2i_coffee_room02_052`.
 
+## Rà đặc trưng theo toạ độ pixel (kích thước khung có thể thành đường tắt)
+Le2i có 25 video 320×180, tất cả đều là fall; mọi ADL đều 320×240 (xem khối "Kích thước khung hình" trong `DATA_CARD.md`). Đã rà mọi hàm đặc trưng trong `src/`.
+
+| Đặc trưng (file) | Trước | Sau | Ghi chú |
+|---|---|---|---|
+| `aspect` = w/h (`m1_features.py`, `window_features.py`) | tỉ lệ | không đổi | Đã là tỉ lệ. Chỉ bất biến nếu kích thước khác nhau do co đều; nếu 320×180 là co không đều hoặc cắt thì aspect lệch. **Chưa kiểm chứng**, xem cách đo độ tách bên dưới |
+| `vy`, `ay`, `speed` (`m1_features.py`) | chiều cao người/giây | không đổi | Đã chia cho chiều cao chuẩn (lớn nhất trong 1.5 s), không phụ thuộc độ phân giải; `test_resolution_invariant` kiểm tra |
+| `aspect_*`, `vy_*`, `ay_max`, `speed_mean`, `still_ratio` (`window_features.py`) | thống kê của các tín hiệu trên | không đổi | Không có toạ độ x, y hay w, h tuyệt đối |
+| ngưỡng `still_speed`, `vy_*`, `ay_*` (`configs/m1.yaml`) | chiều cao người/giây | không đổi | |
+| `normalize_keypoints` (`features.py`) | chia cho w, h của bbox | không đổi | Đã chuẩn hóa theo bbox |
+| `bbox_geometric_features` (`features.py`, TV3) | `vy`, `ay` tính bằng **pixel/frame** (`np.diff(cy)`) | **chưa sửa** | File của TV3. `ar` là tỉ lệ; `stillness` là tỉ lệ so với trung bình; chỉ `vy`, `ay` phụ thuộc kích thước. `datasets.py` dùng hàm này cho M2/M3 |
+| `RuleThresholds.vy_fall = 8.0` (`models/model1_rule.py`, TV3) | ngưỡng **pixel/frame** | **chưa sửa** | File của TV3, M1 cũ. Cùng ngưỡng 8 px/frame ứng với tỉ lệ khác nhau trên khung 180 và 240 dòng; `m1_rule.py` mới đã thay bằng chiều cao người/giây |
+
+TV1 không sửa file của TV3, nên 2 dòng "chưa sửa" chuyển cho TV3 (xem "Việc cho TV3"). Mọi đặc trưng của TV1 đã là tỉ lệ hoặc chuẩn hóa theo chiều cao người, nên không có đặc trưng nào bị đổi định nghĩa.
+
+Cách đo trên dữ liệu thật: `python -m src.eda.plots ...` ghi `reports/results/size_separation.json` (silhouette theo kích thước, khoảng cách centroid, silhouette riêng trong lớp fall, silhouette theo lớp để so sánh) và tự thêm cảnh báo vào `DATA_CARD.md` nếu silhouette ≥ 0.25 (`--size-warn` đổi ngưỡng). Ngưỡng 0.25 là quy ước chung của silhouette cho "gần như chưa có cấu trúc nhóm", không phải đo từ dữ liệu này. Đo chỉ trên cửa sổ của video Le2i vì chỉ Le2i có 2 kích thước.
+
 ## Việc cho TV3
 TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không sửa.
 
 | File, dòng (trên `main`) | Code hiện tại | Khác định nghĩa mới |
 |---|---|---|
 | `src/evaluate.py:41` | `latencies.append(max(0.0, (a - s) / fps))` | Cắt latency âm về 0; định nghĩa mới giữ giá trị âm |
+| `src/features.py:23-25` (`bbox_geometric_features`) | `vy = np.diff(cy)`, `ay = np.diff(vy)`, `speed` theo pixel/frame | Phụ thuộc kích thước khung; chia cho chiều cao người (xem `m1_features.track_signals`) |
+| `src/models/model1_rule.py:14` | `vy_fall: float = 8.0` px/frame | Đổi sang chiều cao người/frame hoặc dùng `m1_rule.py` |
 | `src/datasets.py:43` | `return [(0, max(1, n_frames - 1))]` | Coi cả chuỗi URFD là một sự kiện; định nghĩa mới dùng `fall_start_frame`, `fall_end_frame` trong `metadata.csv` |
 
 ## Câu hỏi cho TV1
