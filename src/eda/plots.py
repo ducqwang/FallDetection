@@ -20,6 +20,7 @@ from ..data.frame_size import DEFAULT_WARNING_THRESHOLD, scene_size_table
 from .embedding import plot_embedding, plot_embedding_pair  # noqa: F401  (plot_embedding giữ ở đây cho nơi gọi cũ)
 from .size_check import measure_size_separation, update_data_card
 from .style import (COLOR_ADL, COLOR_FALL, COLOR_HARD, DATASET_NAMES, _bar_labels, _save, plt)
+from ..models.m1_features import drop_duplicate_frames
 from .window_features import build_window_features
 
 def _labeled(meta: pd.DataFrame) -> pd.DataFrame:
@@ -163,14 +164,19 @@ def main() -> None:
                plot_frame_balance(meta, out_dir / "eda_3_frame_balance.png"),
                plot_scene_distribution(meta, out_dir / "eda_4_scene_distribution.png")]
     config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
-    gt_boxes = pd.read_csv(args.gt_bbox)
+    gt_boxes, n_dropped = drop_duplicate_frames(pd.read_csv(args.gt_bbox))
+    if n_dropped:
+        print(f"CẢNH BÁO | Le2i GT: bỏ {n_dropped} dòng bbox trùng (video_id, frame_idx), giữ dòng đầu")
+    # Ghi bảng kích thước và khối DATA_CARD trước phần đặc trưng: chúng chỉ cần metadata nên không phụ thuộc bbox.
+    written.append(plot_scene_size_table(meta, out_dir / "eda_6_le2i_scene_size.png"))
+    written.append(export_scene_size_table(meta, Path(args.results_dir) / "le2i_scene_size_table.csv"))
+    if args.data_card:
+        update_data_card(args.data_card, meta, None, args.size_warn)
     boxes = pd.read_parquet(args.tracks) if args.tracks else gt_boxes
     X, y, names, sizes = build_window_features(boxes, meta, args.window_s, args.stride_s, config["signals"],
                                                config["rules"]["still_speed"], gt_boxes if args.tracks else None, with_size=True)
     source = f"{len(names)} đặc trưng hình học, cửa sổ {args.window_s:g} s, bbox từ {'tracks cache' if args.tracks else 'Le2i GT'}"
     written += plot_embedding_pair(X, y, sizes, source, out_dir, args.perplexity, args.seed)
-    written.append(plot_scene_size_table(meta, out_dir / "eda_6_le2i_scene_size.png"))
-    written.append(export_scene_size_table(meta, Path(args.results_dir) / "le2i_scene_size_table.csv"))
     in_le2i = np.isin(sizes, scene_size_table(meta)["size"].unique())  # độ tách chỉ đo trên các kích thước của Le2i
     separation = None
     if len(set(sizes[in_le2i])) >= 2:

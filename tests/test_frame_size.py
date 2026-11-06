@@ -167,6 +167,7 @@ def test_cli_writes_figures_tables_and_data_card(tmp_path):
             drop = 40.0 * max(0, min(frame - 10, 10)) / 10  # hộp bẹt dần trong khoảng 10-20 như lúc ngã
             rows.append({"video_id": video_id, "frame_idx": frame, "x1": 50.0 + number, "y1": 20.0 + drop,
                          "x2": 90.0 + drop, "y2": 120.0})
+    rows += [{**rows[3], "x1": 60.0}, dict(rows[95])]  # frame ghi trùng: 1 dòng khác hộp, 1 dòng y hệt (như Le2i GT thật)
     gt = tmp_path / "gt.csv"
     pd.DataFrame(rows).to_csv(gt, index=False)
     card = tmp_path / "DATA_CARD.md"
@@ -179,3 +180,30 @@ def test_cli_writes_figures_tables_and_data_card(tmp_path):
     assert (tmp_path / "fig" / "eda_5b_pca_tsne_by_size.png").exists() and (tmp_path / "fig" / "eda_6_le2i_scene_size.png").exists()
     assert (tmp_path / "res" / "le2i_scene_size_table.csv").exists() and (tmp_path / "res" / "size_separation.json").exists()
     assert "3 video 320×180" in card.read_text(encoding="utf-8")
+    assert "bỏ 2 dòng bbox trùng" in done.stdout
+
+
+def test_duplicate_gt_frames_keep_first_and_are_counted():
+    from src.models.m1_features import drop_duplicate_frames
+    from src.models.m1_rule import gt_boxes_as_tracks
+    boxes = pd.DataFrame({"video_id": ["v"] * 4, "frame_idx": [0, 1, 1, 2], "x1": [1.0, 2, 9, 3], "y1": [1.0] * 4,
+                          "x2": [5.0] * 4, "y2": [5.0] * 4, "aux_code": [1] * 4})
+    unique, dropped = drop_duplicate_frames(boxes)
+    assert dropped == 1 and unique["frame_idx"].tolist() == [0, 1, 2] and unique.loc[1, "x1"] == 2
+    assert gt_boxes_as_tracks(boxes)["frame_idx"].is_unique
+
+
+def test_size_table_is_written_even_if_window_features_fail(tmp_path):
+    """Bảng kích thước chỉ cần metadata nên phải có dù bước đặc trưng cửa sổ lỗi (bbox rỗng)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    meta = le2i_meta().assign(camera="cam0")
+    meta_path = tmp_path / "metadata.csv"
+    meta.to_csv(meta_path, index=False)
+    gt = tmp_path / "gt.csv"
+    pd.DataFrame(columns=["video_id", "frame_idx", "x1", "y1", "x2", "y2", "aux_code"]).to_csv(gt, index=False)
+    subprocess.run([sys.executable, "-m", "src.eda.plots", "--meta", str(meta_path), "--gt-bbox", str(gt),
+                    "--out-dir", str(tmp_path / "fig"), "--results-dir", str(tmp_path / "res")],
+                   cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True)
+    assert (tmp_path / "res" / "le2i_scene_size_table.csv").exists()

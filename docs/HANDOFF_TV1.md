@@ -162,6 +162,11 @@ TV1 không sửa file của TV3, nên 2 dòng "chưa sửa" chuyển cho TV3 (xe
 
 Cách đo trên dữ liệu thật: `python -m src.eda.plots ...` ghi `reports/results/size_separation.json` (silhouette theo kích thước, khoảng cách centroid, silhouette riêng trong lớp fall, silhouette theo lớp để so sánh) và tự thêm cảnh báo vào `DATA_CARD.md` nếu silhouette ≥ 0.25 (`--size-warn` đổi ngưỡng). Ngưỡng 0.25 là quy ước chung của silhouette cho "gần như chưa có cấu trúc nhóm", không phải đo từ dữ liệu này. Đo chỉ trên cửa sổ của video Le2i vì chỉ Le2i có 2 kích thước.
 
+### Le2i GT có frame ghi trùng
+Lần chạy EDA đầu tiên trên Kaggle dừng với `Track có frame trùng` vì `annotations/le2i_gt_bbox.csv` có 350 dòng trùng `(video_id, frame_idx)` (627 dòng thuộc 47 video; `le2i_coffee_room01_035` có 471 dòng trong nhóm trùng; trong 231 nhóm frame, hộp khác nhau). `aux_code` chưa rõ nghĩa nên không biết hộp nào đúng.
+Cách xử lý: `m1_features.drop_duplicate_frames` giữ dòng đầu của mỗi frame và in `CẢNH BÁO | Le2i GT: bỏ N dòng bbox trùng`. Áp dụng ở `plots.py` và `m1_rule.gt_boxes_as_tracks` (cũng dùng bởi `tune_m1`). `contiguous_track` vẫn raise nếu còn trùng. `prepare_data` chưa đổi nên `le2i_gt_bbox.csv` vẫn còn dòng trùng; cần TV1 xác nhận hộp nào đúng trước khi bỏ ở nguồn.
+Bảng kích thước và khối DATA_CARD giờ được ghi trước bước đặc trưng cửa sổ, nên không mất khi bước sau lỗi.
+
 ## Việc cho TV3
 TV3 tự chuyển các chỗ sau sang `src/eval/event_metrics.py`; TV1 không sửa.
 
