@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 
 from ..data.common import METADATA_DTYPES, PREDICTION_COLUMNS, TRACK_COLUMNS
-from .m1_features import run_length_seconds, seconds_to_frames, split_at_long_gaps, track_signals
+from .m1_features import drop_duplicate_frames, run_length_seconds, seconds_to_frames, split_at_long_gaps, track_signals
 
 GT_TRACK_ID = 1
 GT_DET_CONF = 1.0
@@ -82,8 +82,12 @@ def score_signals(signals: pd.DataFrame, fps: float, rules: dict, weights: dict)
 
 
 def gt_boxes_as_tracks(gt_boxes: pd.DataFrame) -> pd.DataFrame:
-    """Đổi Le2i GT bbox (frame_idx 0-based, pixel) thành tracks đúng schema: mỗi video 1 track, det_conf = 1."""
-    return gt_boxes.assign(track_id=GT_TRACK_ID, det_conf=GT_DET_CONF)[TRACK_COLUMNS]
+    """Đổi Le2i GT bbox (frame_idx 0-based, pixel) thành tracks đúng schema: mỗi video 1 track, det_conf = 1.
+    Frame ghi trùng chỉ giữ dòng đầu (xem drop_duplicate_frames)."""
+    unique, n_dropped = drop_duplicate_frames(gt_boxes)
+    if n_dropped:
+        print(f"CẢNH BÁO | Le2i GT: bỏ {n_dropped} dòng bbox trùng (video_id, frame_idx), giữ dòng đầu")
+    return unique.assign(track_id=GT_TRACK_ID, det_conf=GT_DET_CONF)[TRACK_COLUMNS]
 
 
 def signals_by_track(tracks: pd.DataFrame, meta: pd.DataFrame, config: dict) -> list[dict]:
