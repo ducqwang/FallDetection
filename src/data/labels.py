@@ -11,6 +11,8 @@ from typing import Mapping
 import numpy as np
 import pandas as pd
 
+from .common import drop_duplicate_frames
+
 
 def window_label(video_row: Mapping, start_frame: int, end_frame: int, min_overlap: float = 0.5) -> int:
     """Nhãn của cửa sổ [start_frame, end_frame] (frame 0-based, tính cả hai đầu).
@@ -60,8 +62,7 @@ def _best_iou_track(tracks_df: pd.DataFrame, gt_bbox_df: pd.DataFrame, width: in
     không thắng được track bám người suốt video. Hòa thì lấy track_id nhỏ nhất.
     """
     scores: dict[int, float] = {}
-    gt = gt_bbox_df.set_index("frame_idx")[["x1", "y1", "x2", "y2"]]
-    gt = gt[~gt.index.duplicated()]
+    gt = drop_duplicate_frames(gt_bbox_df)[0].set_index("frame_idx")[["x1", "y1", "x2", "y2"]]
     for track_id, group in tracks_df.groupby("track_id"):
         shared = group[group["frame_idx"].isin(gt.index)]
         boxes = shared[["x1", "y1", "x2", "y2"]].to_numpy(dtype=float)

@@ -15,12 +15,11 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from ..data.common import METADATA_DTYPES
+from ..data.common import METADATA_DTYPES, drop_duplicate_frames
 from ..data.frame_size import DEFAULT_WARNING_THRESHOLD, scene_size_table
 from .embedding import plot_embedding, plot_embedding_pair  # noqa: F401  (plot_embedding giữ ở đây cho nơi gọi cũ)
 from .size_check import measure_size_separation, update_data_card
 from .style import (COLOR_ADL, COLOR_FALL, COLOR_HARD, DATASET_NAMES, _bar_labels, _save, plt)
-from ..models.m1_features import drop_duplicate_frames
 from .window_features import build_window_features
 
 def _labeled(meta: pd.DataFrame) -> pd.DataFrame:

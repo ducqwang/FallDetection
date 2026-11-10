@@ -71,17 +71,29 @@ Kết quả in thành bảng và lưu JSON vào `reports/results/`. Ngưỡng `t
 
 Các lệnh trên dùng `--thr` cho mô hình không có file tune. M1 phải theo quy trình dưới đây.
 
-### Quy trình M1 bắt buộc
+### Quy trình M1
 
-Chạy đúng thứ tự, cả 3 bước dùng **cùng một file tune**:
+Chạy đúng thứ tự (a) → (b) → (c). Với mỗi bộ dữ liệu, 3 bước dùng **cùng một file tune**:
 
 ```bash
-# 1. Tune luật và thr, chỉ trên val
+# (a) Tune luật và thr CHỈ trên val, mỗi bộ dữ liệu một file yaml
 python scripts/tune_m1.py --tracks tracks.parquet --meta metadata.csv --dataset urfd --out reports/results/m1_tuned_urfd.yaml
-# 2. Sinh predictions bằng luật đã tune
-python -m src.models.m1_rule --tracks tracks.parquet --meta metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out predictions.csv
-# 3. Đánh giá bằng thr đã tune
-python scripts/evaluate.py --pred predictions.csv --meta metadata.csv --split test --dataset urfd --tuned reports/results/m1_tuned_urfd.yaml
+python scripts/tune_m1.py --tracks tracks.parquet --meta metadata.csv --dataset le2i --out reports/results/m1_tuned_le2i.yaml
+# (b) Sinh predictions bằng luật đã tune (tracks.parquet có cả 2 bộ nên 1 file predictions phủ cả 2)
+python -m src.models.m1_rule --tracks tracks.parquet --meta metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out m1_urfd.csv
+python -m src.models.m1_rule --tracks tracks.parquet --meta metadata.csv --tuned reports/results/m1_tuned_le2i.yaml --out m1_le2i.csv
+# (c) Đánh giá bằng thr đã tune: test của chính bộ đó (chạy MỘT lần) ...
+python scripts/evaluate.py --pred m1_urfd.csv --meta metadata.csv --split test --dataset urfd --tuned reports/results/m1_tuned_urfd.yaml
+python scripts/evaluate.py --pred m1_le2i.csv --meta metadata.csv --split test --dataset le2i --tuned reports/results/m1_tuned_le2i.yaml
+# ... rồi cross-dataset: tune trên bộ này, đánh giá toàn bộ video có nhãn của bộ kia
+python scripts/evaluate.py --pred m1_urfd.csv --meta metadata.csv --split all --dataset le2i --tuned reports/results/m1_tuned_urfd.yaml --tag m1_cross_A
+python scripts/evaluate.py --pred m1_le2i.csv --meta metadata.csv --split all --dataset urfd --tuned reports/results/m1_tuned_le2i.yaml --tag m1_cross_B
 ```
 
-**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `thr` được chọn cùng với luật, nên chỉ có ý nghĩa với điểm sinh từ đúng các luật đó. `evaluate.py --tuned` chỉ đọc `alarm.thr`, không biết `predictions.csv` được sinh bằng luật nào, nên nếu bỏ `--tuned` ở bước 2 thì lệnh vẫn chạy và không báo lỗi, nhưng kết quả sai.
+Chế độ GT (cận trên, chỉ Le2i): thay `--tracks tracks.parquet` bằng `--gt-bbox annotations/le2i_gt_bbox.csv` ở (a) và (b).
+`notebooks/02_m1_baseline.ipynb` chạy đúng các lệnh này.
+
+**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `evaluate.py --tuned` chỉ đọc `alarm.thr`. Các luật đã tune
+(`ar_upright`, `ar_lying`, `vy_full`, `window_s`) chỉ có tác dụng nếu có mặt lúc sinh predictions, tức là `m1_rule --tuned`
+ở bước (b). `thr` được chọn cùng với các luật đó, nên chỉ có ý nghĩa với điểm sinh từ đúng các luật đó. Nếu bỏ `--tuned`
+ở bước (b), predictions được sinh bằng luật mặc định: lệnh vẫn chạy, không báo lỗi, nhưng kết quả sai.

@@ -184,7 +184,7 @@ def test_cli_writes_figures_tables_and_data_card(tmp_path):
 
 
 def test_duplicate_gt_frames_keep_first_and_are_counted():
-    from src.models.m1_features import drop_duplicate_frames
+    from src.data.common import drop_duplicate_frames
     from src.models.m1_rule import gt_boxes_as_tracks
     boxes = pd.DataFrame({"video_id": ["v"] * 4, "frame_idx": [0, 1, 1, 2], "x1": [1.0, 2, 9, 3], "y1": [1.0] * 4,
                           "x2": [5.0] * 4, "y2": [5.0] * 4, "aux_code": [1] * 4})

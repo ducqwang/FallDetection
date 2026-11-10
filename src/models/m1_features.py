@@ -43,17 +43,6 @@ def split_at_long_gaps(track: pd.DataFrame, fps: float, max_gap_s: float) -> lis
     return [part for _, part in ordered.groupby(segment, sort=True)]
 
 
-def drop_duplicate_frames(boxes: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Giữ dòng đầu tiên của mỗi (video_id, frame_idx[, track_id]); trả về (bảng, số dòng bị bỏ).
-
-    Le2i GT thật có frame ghi 2 lần (có khi 2 hộp khác nhau), không rõ hộp nào đúng, nên giữ dòng xuất hiện
-    trước trong file và báo số dòng bỏ để người chạy biết. contiguous_track vẫn raise nếu còn frame trùng.
-    """
-    keys = [column for column in ("video_id", "track_id", "frame_idx") if column in boxes]
-    kept = boxes.drop_duplicates(subset=keys, keep="first")
-    return kept.reset_index(drop=True), len(boxes) - len(kept)
-
-
 def contiguous_track(track: pd.DataFrame) -> pd.DataFrame:
     """Sắp theo frame và nội suy tuyến tính các frame track bị mất giữa chừng.
 

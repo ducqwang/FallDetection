@@ -71,10 +71,15 @@ Bước 1 đến 3 đã xong, còn bước 4 và 5, rồi commit output ở bư�
 | tv1_01_eda | có | không | 5–10 phút | dưới 50 MB |
 | 02_m1_baseline | có | có | 30–60 phút | dưới 200 MB |
 
-### Quy trình M1 bắt buộc
-Chạy đúng thứ tự `tune_m1` → `m1_rule --tuned` (sinh predictions) → `evaluate --tuned`, cả 3 bước dùng cùng một file tune. Lệnh đầy đủ ở `docs/EVAL_PROTOCOL.md` mục 7; `notebooks/02_m1_baseline.ipynb` đã theo đúng thứ tự này.
+### Quy trình M1
+Đúng thứ tự, mỗi bộ dữ liệu dùng cùng một file tune cho cả 3 bước:
+1. (a) `scripts/tune_m1.py --tracks|--gt-bbox ... --meta ... --dataset urfd|le2i --out <yaml>`: tune trên val của từng bộ → 1 file yaml tuned mỗi bộ.
+2. (b) `python -m src.models.m1_rule --tracks|--gt-bbox ... --meta ... --tuned <yaml> --out predictions.csv`.
+3. (c) `scripts/evaluate.py --pred ... --meta ... --split test --dataset <bộ đó> --tuned <yaml>`, chạy MỘT lần; rồi `--split all --dataset <bộ kia>` cho cross-dataset.
 
-**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `evaluate --tuned` chỉ đọc `alarm.thr`, không biết predictions được sinh bằng luật nào. Bỏ `--tuned` ở `m1_rule` thì lệnh vẫn chạy, không báo lỗi, nhưng kết quả sai.
+Lệnh đầy đủ ở `docs/EVAL_PROTOCOL.md` mục 7; `notebooks/02_m1_baseline.ipynb` theo đúng thứ tự này.
+
+**Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `evaluate.py --tuned` chỉ lấy `alarm.thr`. Các luật đã tune (`ar_upright`, `ar_lying`, `vy_full`, `window_s`) phải có mặt lúc sinh predictions (`m1_rule --tuned`). Bỏ `--tuned` ở `m1_rule` thì lệnh vẫn chạy, không báo lỗi, nhưng kết quả sai.
 
 ## Số liệu thật đã kiểm tra
 Từ `dataset_index/` do TV1 chạy trên Kaggle:
@@ -162,9 +167,14 @@ TV1 không sửa file của TV3, nên 2 dòng "chưa sửa" chuyển cho TV3 (xe
 
 Cách đo trên dữ liệu thật: `python -m src.eda.plots ...` ghi `reports/results/size_separation.json` (silhouette theo kích thước, khoảng cách centroid, silhouette riêng trong lớp fall, silhouette theo lớp để so sánh) và tự thêm cảnh báo vào `DATA_CARD.md` nếu silhouette ≥ 0.25 (`--size-warn` đổi ngưỡng). Ngưỡng 0.25 là quy ước chung của silhouette cho "gần như chưa có cấu trúc nhóm", không phải đo từ dữ liệu này. Đo chỉ trên cửa sổ của video Le2i vì chỉ Le2i có 2 kích thước.
 
+## Hạn chế dữ liệu đã biết
+- **Le2i bbox trùng:** `le2i_gt_bbox.csv` có 350 dòng trùng `(video_id, frame_idx)` (`le2i_coffee_room01_035` chiếm 471 dòng trong các nhóm trùng, 46 video khác mỗi video ≤ 10 dòng). Xử lý ở chỗ đọc bằng hàm chung `src/data/common.drop_duplicate_frames` (giữ dòng đầu theo thứ tự file), dùng trong `m1_rule.gt_boxes_as_tracks` (cả `tune_m1 --gt-bbox`), `src/eda/plots.py` và `labels.select_main_track` (M3 dùng qua hàm này). File do `prepare_data` sinh ra giữ nguyên.
+- **Le2i scene trùng với lớp:** Coffee room 01 (48) và Home 01 (30) toàn video fall; ADL chỉ có ở Coffee room 02 (8 ADL, 14 fall) và Home 02 (23 ADL, 7 fall). Khuyến nghị báo kết quả Le2i theo scene, không chỉ con số gộp.
+- **URFD độ dài clip khác theo lớp:** trung vị fall 3.1 s, ADL 7.8 s. Đánh giá ở mức sự kiện/cửa sổ; không dùng độ dài clip làm đặc trưng.
+
 ### Le2i GT có frame ghi trùng
 Lần chạy EDA đầu tiên trên Kaggle dừng với `Track có frame trùng` vì `annotations/le2i_gt_bbox.csv` có 350 dòng trùng `(video_id, frame_idx)` (627 dòng thuộc 47 video; `le2i_coffee_room01_035` có 471 dòng trong nhóm trùng; trong 231 nhóm frame, hộp khác nhau). `aux_code` chưa rõ nghĩa nên không biết hộp nào đúng.
-Cách xử lý: `m1_features.drop_duplicate_frames` giữ dòng đầu của mỗi frame và in `CẢNH BÁO | Le2i GT: bỏ N dòng bbox trùng`. Áp dụng ở `plots.py` và `m1_rule.gt_boxes_as_tracks` (cũng dùng bởi `tune_m1`). `contiguous_track` vẫn raise nếu còn trùng. `prepare_data` chưa đổi nên `le2i_gt_bbox.csv` vẫn còn dòng trùng; cần TV1 xác nhận hộp nào đúng trước khi bỏ ở nguồn.
+Cách xử lý: `src/data/common.drop_duplicate_frames` giữ dòng đầu của mỗi frame và in `CẢNH BÁO | Le2i GT: bỏ N dòng bbox trùng`. Áp dụng ở `plots.py`, `m1_rule.gt_boxes_as_tracks` (cũng dùng bởi `tune_m1`) và `labels.select_main_track`. `contiguous_track` vẫn raise nếu còn trùng. `prepare_data` chưa đổi nên `le2i_gt_bbox.csv` vẫn còn dòng trùng; cần TV1 xác nhận hộp nào đúng trước khi bỏ ở nguồn.
 Bảng kích thước và khối DATA_CARD giờ được ghi trước bước đặc trưng cửa sổ, nên không mất khi bước sau lỗi.
 
 ## Việc cho TV3
