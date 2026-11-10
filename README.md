@@ -8,7 +8,7 @@ Môn: Một số vấn đề chọn lọc về Thị giác máy tính — MAT356
 - **Thành viên:** Hoàng Minh Quang (23001917), Nguyễn Đức Quang (23001918), Hà Minh Quang (23001916).
 - **Dữ liệu (công khai):** UR Fall Detection (URFD) + Le2i Fall Detection.
 - **Hạ tầng:** Kaggle Notebooks (GPU) + Kaggle Datasets làm input.
-- **Kế hoạch chi tiết:** xem [`Ke_Hoach_Chi_Tiet_GK_CK_Nhom5.docx`](Ke_Hoach_Chi_Tiet_GK_CK_Nhom5.docx).
+- **Kế hoạch chi tiết (bản chốt):** xem [`Ke_Hoach_Fall_Detection_Phan_Cong_Moi.docx`](Ke_Hoach_Fall_Detection_Phan_Cong_Moi.docx).
 
 ## Ba mô hình so sánh (bài toán chính)
 | # | Mô hình | Ý tưởng |
@@ -22,21 +22,23 @@ Pipeline dùng chung (không tính là 1 trong 3 mô hình): **YOLO11 + ByteTrac
 ## Cấu trúc thư mục
 ```
 FallDetection/
-├── configs/default.yaml        # tham số tập trung
+├── configs/                    # data.yaml, m1.yaml, default.yaml
 ├── src/
-│   ├── utils.py                # seed, I/O, logging
-│   ├── data_splits.py          # chia tập theo video + cross-dataset
-│   ├── preprocessing.py        # đọc video, trích frame, augmentation
-│   ├── detection_tracking.py   # YOLO11 + ByteTrack
-│   ├── features.py             # đặc trưng hình học/pose/CNN + PCA/t-SNE
-│   ├── evaluate.py             # độ đo mức sự kiện (cửa sổ dung sai T)
+│   ├── data/                   # HẠ TẦNG CHUNG: prepare_data, loader, split, labels, common...
+│   ├── eda/                    # biểu đồ EDA + PCA/t-SNE
+│   ├── eval/                   # event_metrics, frame_metrics (độ đo dùng chung)
 │   ├── models/
-│   │   ├── model1_rule.py
-│   │   ├── model2_pose_lstm.py
-│   │   └── model3_cnn_gru.py
+│   │   ├── m1_rule.py          # M1 (TV1) → predictions.csv
+│   │   ├── m3_cnn_gru.py       # M3 (TV3) TÍCH HỢP → predictions.csv  ← dùng chung loader/labels/eval
+│   │   ├── model2_pose_lstm.py, model3_cnn_gru.py, model1_rule.py  # bản notebook cũ (độc lập, giữ lại)
+│   │   └── ...
+│   ├── pipeline.py, features.py, detection_tracking.py  # hạ tầng cho Web Demo (app.py)
 │   └── app.py                  # Web Demo (Streamlit)
-└── notebooks/                  # 01_eda ... 06_evaluation (chạy trên Kaggle)
+├── scripts/                    # make_tracks_tmp, tune_m1, evaluate, summarize_results
+└── notebooks/                  # tv1_01_eda, 02_m1_baseline, tv3_05_m3 ... (chạy trên Kaggle)
 ```
+
+> Lưu ý: hiện tồn tại song song **bản hạ tầng chung** (`src/data`, `src/eval`, `models/m1_rule.py`, `models/m3_cnn_gru.py`) và **bản notebook độc lập cũ** (`pipeline.py`, `features.py`, `model*_*.py`). Code mới nên dùng hạ tầng chung; bản cũ còn giữ để Web Demo chạy.
 
 ## TV1 — cách chạy lại
 
@@ -65,6 +67,24 @@ Sau khi chạy, commit `metadata.csv`, `splits.json`, `DATA_CARD.md` vào `datas
 Chạy test: `python -m pytest tests -q` (phần end-to-end cần ffmpeg và ffprobe).
 
 **Cross-dataset** không cần file chia riêng. Protocol A: train trên URFD, test toàn bộ Le2i (130 video có nhãn). Protocol B: train trên Le2i, test toàn bộ URFD (70 video). Dùng `--split all` trong `scripts/evaluate.py`.
+
+## TV3 — M3 (CNN+GRU) & Web Demo
+
+M3 dùng **chung** data/nhãn/tracks/đánh giá với M1, M2 (không tự index, không tự chạy YOLO, không tự đánh giá). Notebook: [`notebooks/tv3_05_m3.ipynb`](notebooks/tv3_05_m3.ipynb) (clone repo + Add Input `nhom05-falldet-processed` + GPU). CLI:
+
+```bash
+# 1) tracks dùng chung (hoặc Add Input tracks.parquet của TV2)
+python scripts/make_tracks_tmp.py --meta $ROOT/metadata.csv --out m3/tracks.parquet --model yolo11n.pt
+# 2) huấn luyện (backbone đóng băng, chỉ train GRU)
+python -m src.models.m3_cnn_gru train --tracks m3/tracks.parquet --meta $ROOT/metadata.csv \
+    --root $ROOT --dataset le2i --gt-bbox $ROOT/annotations/le2i_gt_bbox.csv --ckpt m3/m3_best.pt
+# 3) dự đoán → predictions.csv (schema chung) rồi đánh giá bằng script chung
+python -m src.models.m3_cnn_gru predict --tracks m3/tracks.parquet --meta $ROOT/metadata.csv \
+    --root $ROOT --ckpt m3/m3_best.pt --out m3/m3_pred.csv
+python scripts/evaluate.py --pred m3/m3_pred.csv --meta $ROOT/metadata.csv --split test --dataset le2i --T 0.5 1.0 2.0 --tag m3
+```
+
+**Web Demo:** `streamlit run src/app.py` (chọn M1/M2/M3, thanh độ nhạy, xuất log `.json` + MOT `.txt`). M2/M3 cần checkpoint đã huấn luyện ở `outputs/`.
 
 ## Chạy nhanh (local)
 ```bash
