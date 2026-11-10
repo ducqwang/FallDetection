@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from ..data.common import METADATA_DTYPES, PREDICTION_COLUMNS, TRACK_COLUMNS
-from .m1_features import drop_duplicate_frames, run_length_seconds, seconds_to_frames, split_at_long_gaps, track_signals
+from ..data.common import METADATA_DTYPES, PREDICTION_COLUMNS, TRACK_COLUMNS, drop_duplicate_frames
+from .m1_features import run_length_seconds, seconds_to_frames, split_at_long_gaps, track_signals
 
 GT_TRACK_ID = 1
 GT_DET_CONF = 1.0

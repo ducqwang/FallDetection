@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import re
 
+import pandas as pd
+
 METADATA_COLUMNS = [
     "video_id", "dataset", "scene", "scene_part", "camera", "label",
     "fall_start_frame", "fall_end_frame", "fps", "n_frames",
@@ -49,3 +51,14 @@ def sequence_id(video_id: str) -> str:
     """
     match = _URFD_ID_RE.match(video_id)
     return f"urfd_{match.group(1)}" if match else video_id
+
+
+def drop_duplicate_frames(boxes: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Giữ dòng đầu tiên (theo thứ tự file) của mỗi (video_id, frame_idx[, track_id]); trả về (bảng, số dòng bị bỏ).
+
+    Le2i GT thật (`le2i_gt_bbox.csv`) có 350 dòng ghi trùng frame, có khi 2 hộp khác nhau, không rõ hộp nào đúng.
+    Mọi chỗ đọc GT gọi hàm này để cùng một quy tắc; file do prepare_data sinh ra giữ nguyên.
+    """
+    keys = [column for column in ("video_id", "track_id", "frame_idx") if column in boxes]
+    kept = boxes.drop_duplicates(subset=keys, keep="first")
+    return kept.reset_index(drop=True), len(boxes) - len(kept)
