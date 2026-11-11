@@ -34,7 +34,7 @@ FallDetection/
 │   │   └── ...
 │   ├── pipeline.py, features.py, detection_tracking.py  # hạ tầng cho Web Demo (app.py)
 │   └── app.py                  # Web Demo (Streamlit)
-├── scripts/                    # make_tracks_tmp, tune_m1, evaluate, summarize_results
+├── scripts/                    # make_tracks, check_tracks_quality, tune_m1, evaluate, summarize_results
 └── notebooks/                  # tv1_01_eda, 02_m1_baseline, tv3_05_m3 ... (chạy trên Kaggle)
 ```
 
@@ -56,9 +56,10 @@ Lệnh tương ứng:
 python -m src.data.prepare_data --config configs/data.yaml --out-root $OUT --workers 4
 python -m src.data.split --meta $OUT/metadata.csv --out $OUT/splits.json --seed 42
 python -m src.eda.plots --meta $OUT/metadata.csv --gt-bbox $OUT/annotations/le2i_gt_bbox.csv --out-dir reports/figures --results-dir reports/results --data-card DATA_CARD.md
-python scripts/make_tracks_tmp.py --meta $OUT/metadata.csv --out tracks.parquet   # tạm thời, thay bằng tracks của TV2
-python scripts/tune_m1.py --tracks tracks.parquet --meta $OUT/metadata.csv --dataset urfd --out reports/results/m1_tuned_urfd.yaml
-python -m src.models.m1_rule --tracks tracks.parquet --meta $OUT/metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out predictions.csv
+python scripts/make_tracks.py --root $OUT --out-dir tracks   # tracks chính thức TV1 (GPU), ghi tracks/tracks.parquet
+python scripts/check_tracks_quality.py --tracks tracks/tracks.parquet --root $OUT
+python scripts/tune_m1.py --tracks tracks/tracks.parquet --meta $OUT/metadata.csv --dataset urfd --out reports/results/m1_tuned_urfd.yaml
+python -m src.models.m1_rule --tracks tracks/tracks.parquet --meta $OUT/metadata.csv --tuned reports/results/m1_tuned_urfd.yaml --out predictions.csv
 python scripts/evaluate.py --pred predictions.csv --meta $OUT/metadata.csv --split test --dataset urfd --tuned reports/results/m1_tuned_urfd.yaml
 ```
 
@@ -73,13 +74,13 @@ Chạy test: `python -m pytest tests -q` (phần end-to-end cần ffmpeg và ffp
 M3 dùng **chung** data/nhãn/tracks/đánh giá với M1, M2 (không tự index, không tự chạy YOLO, không tự đánh giá). Notebook: [`notebooks/tv3_05_m3.ipynb`](notebooks/tv3_05_m3.ipynb) (clone repo + Add Input `nhom05-falldet-processed` + GPU). CLI:
 
 ```bash
-# 1) tracks dùng chung (hoặc Add Input tracks.parquet của TV2)
-python scripts/make_tracks_tmp.py --meta $ROOT/metadata.csv --out m3/tracks.parquet --model yolo11n.pt
+# 1) tracks dùng chung với M1 (hoặc Add Input Kaggle Dataset nhom05-falldet-tracks)
+python scripts/make_tracks.py --root $ROOT --out-dir m3/tracks   # ghi m3/tracks/tracks.parquet
 # 2) huấn luyện (backbone đóng băng, chỉ train GRU)
-python -m src.models.m3_cnn_gru train --tracks m3/tracks.parquet --meta $ROOT/metadata.csv \
+python -m src.models.m3_cnn_gru train --tracks m3/tracks/tracks.parquet --meta $ROOT/metadata.csv \
     --root $ROOT --dataset le2i --gt-bbox $ROOT/annotations/le2i_gt_bbox.csv --ckpt m3/m3_best.pt
 # 3) dự đoán → predictions.csv (schema chung) rồi đánh giá bằng script chung
-python -m src.models.m3_cnn_gru predict --tracks m3/tracks.parquet --meta $ROOT/metadata.csv \
+python -m src.models.m3_cnn_gru predict --tracks m3/tracks/tracks.parquet --meta $ROOT/metadata.csv \
     --root $ROOT --ckpt m3/m3_best.pt --out m3/m3_pred.csv
 python scripts/evaluate.py --pred m3/m3_pred.csv --meta $ROOT/metadata.csv --split test --dataset le2i --T 0.5 1.0 2.0 --tag m3
 ```

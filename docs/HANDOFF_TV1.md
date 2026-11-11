@@ -1,5 +1,5 @@
 # HANDOFF TV1
-Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-05 15:15
+Nhánh: tv1/make-tracks (từ `main` 50068ca)  |  Cập nhật: 2026-11-11
 
 > Agent không chạy pipeline trên dataset: theo quyết định của TV1, TV1 tự chạy trên Kaggle. Output EDA và M1 còn thiếu được liệt kê ở mục "Việc còn tồn đọng". PR vào `main`: https://github.com/ducqwang/FallDetection/pull/1
 
@@ -11,7 +11,7 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-
 | 2. split | xong | có | `splits.json` thật đã ở `dataset_index/`, seed 42, tỉ lệ 70/15/15 |
 | 3. loader, labels, augment | một phần | chỉ dữ liệu giả | Code và test xong. Chưa có hình minh họa augmentation thật |
 | 4. EDA | một phần | chỉ dữ liệu giả | Code xong, đã thêm bảng kích thước, `color_by` và đo độ tách. Chưa có hình thật trong `reports/figures/` |
-| 5. M1 | một phần | chỉ dữ liệu giả | Code xong. Ngưỡng chưa tune. `make_tracks_tmp.py` đã chạy với YOLO thật trên 1 ảnh mẫu, không phải dataset |
+| 5. M1 | một phần | chỉ dữ liệu giả | Code xong. Ngưỡng chưa tune. Tracks chính thức `scripts/make_tracks.py` mới test bằng model giả; bản tạm trước đó đã chạy với YOLO thật trên 1 ảnh mẫu, không phải dataset |
 | 6. Bộ đánh giá | một phần | chỉ dữ liệu giả | Code và unit test xong. Chưa có bảng kết quả thật |
 
 ## Bản đồ file
@@ -44,7 +44,10 @@ Nhánh: tv1/gk-data-eda-m1  |  Commit cuối: d1000aa  |  Cập nhật: 2026-11-
 | `src/eval/frame_metrics.py` | Độ đo frame | `frame_level_metrics(records, thr)` | điểm theo frame | dict |
 | `scripts/evaluate.py` | CLI đánh giá, cảnh báo video không có dự đoán (`n_videos_without_predictions` trong JSON) | `--pred --meta --split --dataset --thr --tuned --T --tag` | csv | bảng, JSON |
 | `scripts/tune_m1.py` | Grid search chỉ trên val | `--tracks \| --gt-bbox --meta --dataset --out` | tracks | yaml, csv |
-| `scripts/make_tracks_tmp.py` | TẠM THỜI: YOLO11 + ByteTrack | `--meta --out --dataset --model --conf --imgsz` | mp4 | `tracks.parquet` |
+| `scripts/make_tracks.py` | Tracks chính thức TV1: YOLO11 + ByteTrack, shard từng video, resume, sidecar | `--meta --root --out-dir --dataset --model --conf --imgsz --iou --device --tracker --limit --resume/--no-resume` | mp4 | `tracks.parquet`, `tracks_meta.json`, `shards/` |
+| `src/data/track_runner.py` | Lõi của `make_tracks.py` | `track_video`, `process_video(model, row, root, options)`, `reset_trackers`, `write_shard`, `read_shard` | model, 1 dòng metadata | bảng tracks, thống kê |
+| `src/data/tracks.py` | Kiểm tra tracks dùng chung | `validate_tracks(tracks, meta)` → `TrackCheck(issues, empty_videos)`, `clip_to_frame`, `cast_tracks` | tracks, metadata | danh sách vi phạm |
+| `scripts/check_tracks_quality.py`, `src/eval/track_quality.py` | Chất lượng detector | `--tracks --root --meta --gt-bbox --out-dir`; `le2i_track_quality`, `urfd_track_quality`, `summarize` | tracks, GT | 5 CSV trong `quality/` |
 | `scripts/summarize_results.py` | Gom bảng kết quả | `--results-dir --out` | JSON | csv |
 | `tests/` | Test TV1, `fake_kaggle.py` sinh dữ liệu giả | `python -m pytest tests -q` | | |
 | `notebooks/00_prepare_data`, `tv1_01_eda`, `02_m1_baseline` | Chạy trên Kaggle | | | |
@@ -81,6 +84,31 @@ Lệnh đầy đủ ở `docs/EVAL_PROTOCOL.md` mục 7; `notebooks/02_m1_baseli
 
 **Cảnh báo: không trộn luật mặc định với `thr` đã tune.** `evaluate.py --tuned` chỉ lấy `alarm.thr`. Các luật đã tune (`ar_upright`, `ar_lying`, `vy_full`, `window_s`) phải có mặt lúc sinh predictions (`m1_rule --tuned`). Bỏ `--tuned` ở `m1_rule` thì lệnh vẫn chạy, không báo lỗi, nhưng kết quả sai.
 
+## Tracks chính thức (TV1, GK)
+`scripts/make_tracks.py` là **tracks chính thức của TV1 cho giữa kỳ**; M1, M2, M3 dùng chung một file. TV2 có thể thay bằng bản của họ nếu đúng schema (`docs/SCHEMA.md`) và `src.data.tracks.validate_tracks` không báo vi phạm; khi thay thì **phải chạy lại M1** (tune → predict → evaluate) và ghi lại nguồn tracks trong báo cáo.
+
+Chạy trên Kaggle (`notebooks/02_m1_baseline.ipynb` mục 1, bật GPU + Internet):
+```
+python scripts/make_tracks.py --root $ROOT --out-dir /kaggle/working/tracks --limit 3      # chạy thử, kiểm tra track_id video 2 bắt đầu từ 1
+python scripts/make_tracks.py --root $ROOT --out-dir /kaggle/working/tracks --dataset all --model yolo11m.pt
+python scripts/check_tracks_quality.py --tracks /kaggle/working/tracks/tracks.parquet --root $ROOT
+```
+`$ROOT` là thư mục `nhom05-falldet-processed` (trong notebook: `data_root()`). Không truyền `--out-dir` thì script ghi vào `/kaggle/working/tracks` (Kaggle) hoặc `reports/tracks` (máy khác) và in đường dẫn.
+Kaggle ngắt: chạy lại đúng lệnh; `--resume` (mặc định) bỏ qua video đã có shard hợp lệ trong `shards/`. `--no-resume` để chạy lại hết.
+
+| Bước | Internet | GPU | Thời gian (ước tính, chưa đo) | Dung lượng (ước tính, chưa đo) |
+|---|---|---|---|---|
+| `make_tracks.py`, 200 video, 54 002 frame | có (tải `yolo11m.pt` ~40 MB) | có | 25–45 phút trên T4/P100; CPU vài giờ | dưới 50 MB |
+| `check_tracks_quality.py` | không | không | dưới 1 phút | dưới 1 MB |
+
+Đầu ra trong `--out-dir`: `tracks.parquet`, `tracks_meta.json` (tham số, `weights_sha256`, version ultralytics/torch/opencv, nội dung tracker yaml, git commit, số dòng bỏ theo lý do, cảnh báo số frame, video không có người, thời gian), `quality/*.csv`, `shards/`. Lưu cả thư mục thành Kaggle Dataset private `nhom05-falldet-tracks`, chia sẻ cho nhóm (cách làm ở notebook mục 1c).
+
+Cách dùng:
+- M1: `--tracks <dir>/tracks.parquet` cho `scripts/tune_m1.py`, `src.models.m1_rule` theo mục "Quy trình M1". So `quality/le2i_track_quality_by_scene.csv` với dòng `m1_gt` (M1 chạy trên GT bbox): hit_rate thấp ở scene nào thì lỗi M1 ở scene đó có thể do detector.
+- M2 (pose, TV2): lấy hộp người và `track_id` từ file này, chọn track chính bằng `src.data.labels.select_main_track`.
+- M3: `python -m src.models.m3_cnn_gru ... --tracks <dir>/tracks.parquet` (README mục TV3).
+- Mọi bản tracks (kể cả của TV2) kiểm tra bằng `validate_tracks(pd.read_parquet(path), load_metadata())`.
+
 ## Số liệu thật đã kiểm tra
 Từ `dataset_index/` do TV1 chạy trên Kaggle:
 - Tổng 200 video: URFD 70 (30 fall, 40 ADL), Le2i 130 (99 fall, 31 ADL). Tổng số frame URFD 11936.
@@ -94,9 +122,9 @@ Từ `dataset_index/` do TV1 chạy trên Kaggle:
 - Chất lượng M1 (P, R, F1, FAR, latency): chưa đo.
 
 - Dữ liệu tổng hợp, không phải dataset (đo bằng đoạn lệnh tạm trước khi sửa; tính chất tương ứng được kiểm tra trong `tests/test_m1.py`): `aspect` đứng 0.353, nằm 2.833; tại frame vừa nằm `posture_score` = 1.0. Khoảng trống 10 frame: `vy` lớn nhất 0.1765, bằng lúc không có khoảng trống; nếu tính theo số dòng sẽ là 2.75.
-- YOLO11 + ByteTrack (không phải dataset): `scripts/make_tracks_tmp.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
+- YOLO11 + ByteTrack (không phải dataset): bản tạm trước đây của `scripts/make_tracks.py` trên video 20 frame ghép từ ảnh mẫu `bus.jpg` của ultralytics 8.4.202: 80 dòng, 4 track, frame 0..19, không trùng dòng, đúng schema; `src.models.m1_rule` đọc được file đó.
 
-Test: `python3 -m pytest tests -q`: 138 pass, 9 skip, 0 fail (phần lớn dữ liệu giả). Cả 9 test skip ở `tests/test_pipeline_fake.py` vì máy chạy không có ffmpeg, chúng chưa chạy lại từ khi có ffmpeg đạt 145 pass. `python3 tests/smoke_test.py`: 18/18.
+Test: `python3 -m pytest tests -q`: 196 pass, 9 skip, 0 fail (phần lớn dữ liệu giả; tracks: `tests/test_make_tracks.py` dùng model giả, `tests/test_tracks_validate.py`, `tests/test_track_quality.py`). Cả 9 test skip ở `tests/test_pipeline_fake.py` vì máy chạy không có ffmpeg, chúng chưa chạy lại từ khi có ffmpeg đạt 145 pass. `python3 tests/smoke_test.py`: 18/18.
 
 ## Chỗ khác với prompt này
 - Prompt phiên bản 5 có 3 video chưa xác định, 127 video có nhãn, schema không có `label_source`, `aux_code` → đổi theo chỉ đạo mới của TV1: 130 video, thêm 2 cột → `docs/PROMPT_TV1_GiuaKy.md` không có trong repo, bản trên máy agent vẫn là phiên bản 5, nên agent làm theo tóm tắt 6 mục của TV1.
@@ -123,12 +151,14 @@ Test: `python3 -m pytest tests -q`: 138 pass, 9 skip, 0 fail (phần lớn dữ 
 - Kiểm tra `n_bbox_rows`, `n_bbox_zero_rows`, `fall_len_frames` chỉ áp dụng cho video `header_top`, vì các số 39970, 71 và 7/23.5/45 được đo trên nhóm này; số đo cho 130 video nằm trong `DATA_CARD.md`.
 - Lưu file nhỏ của dữ liệu vào `dataset_index/`, vì thư mục tên `data/` bị `.gitignore` chặn.
 - Trọng số M1 cố định 0.30/0.10/0.45/0.15, không nằm trong lưới tune, để lưới nhỏ và dễ giải thích.
-- Giữ `conf = 0.25` và `yolo11n.pt` theo `configs/default.yaml`.
+- Tracks chính thức dùng `yolo11m.pt`, `conf = 0.25`, `imgsz = 640`, `iou = 0.7` (mặc định NMS của ultralytics), `bytetrack.yaml` theo chỉ đạo TV1; `configs/default.yaml` (demo của TV3) vẫn ghi `yolo11n.pt`.
+- `make_tracks.py`: video lệch đúng 1 frame so với metadata là cảnh báo (frame dư bị bỏ, đếm `n_out_of_range`); lệch hơn 1 là lỗi, không ghi `tracks.parquet`, thoát mã 1. Tracks vi phạm `validate_tracks` thì thoát mã 2.
+- `--resume` chỉ dùng lại shard khi cùng `--model`, `--conf`, `--iou`, `--imgsz`, `--tracker`; khác thì chạy lại video đó.
 
 ## Việc còn tồn đọng / rủi ro đã biết
 Output cần dataset, TV1 tự chạy (theo checklist mục 7):
 - 5 biểu đồ EDA và `augment_demo.png` trong `reports/figures/`.
-- `tracks.parquet`, `predictions.csv`, bảng Precision/Recall/F1/FAR/latency và kết quả ADL negative khó trong `reports/results/`.
+- `tracks.parquet` (chạy `make_tracks.py` trên Kaggle), báo cáo chất lượng detector, `predictions.csv`, bảng Precision/Recall/F1/FAR/latency và kết quả ADL negative khó trong `reports/results/`.
 - Đã có: `metadata.csv`, `splits.json`, `DATA_CARD.md` trong `dataset_index/`; PR #1 mở trước khi có các output trên, nên phải commit bổ sung hoặc mở PR sau.
 
 Rủi ro đã biết:
@@ -138,7 +168,7 @@ Rủi ro đã biết:
 - Nếu mp4 lệch số frame khi chạy lại: `_verify_mp4` trong `src/data/prepare_data.py` in tên video, số frame nguồn, số frame mp4, kèm gợi ý `thử -fps_mode passthrough (hoặc -vsync 0 với ffmpeg cũ)` cho Le2i, rồi `convert_videos` in mọi video lệch và dừng. Test: `test_le2i_frame_mismatch_names_video_counts_and_hint`.
 - Khi tune M1, để ý frame người mới vào khung: bbox lớn dần và bị cắt mép có thể làm vận tốc dọc tăng giả, gây FP. Chưa xử lý vì chưa thấy trên dữ liệu thật. Nếu thấy, thêm quy tắc bỏ qua vài frame đầu của mỗi track.
 - M1 khó thấy người ngã thẳng về phía camera vì w/h ít đổi.
-- Không có test tracker reset giữa 2 video trong `make_tracks_tmp.py`; code dùng `persist=False`.
+- Tracker reset giữa 2 video: `make_tracks.py` dùng `persist=False` và gọi `reset()` mọi tracker còn trong `model.predictor` sau mỗi video. Đã test bằng model giả (`test_tracker_resets_between_videos`), **chưa kiểm chứng với ultralytics thật**: kiểm tra trên Kaggle bằng `--limit 3`, video thứ 2 phải có `track_id` bắt đầu từ 1.
 
 ## Quyết định của TV1 đã chốt
 1. FAR báo cáo chính là `far_nonfall_per_hour`; `far_per_hour` là số phụ. Ghi ở `docs/EVAL_PROTOCOL.md`.

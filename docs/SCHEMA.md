@@ -67,11 +67,13 @@ Cửa sổ là dương khi số frame chồng lên sự kiện `[fall_start_fram
 
 Cross-dataset không có file chia riêng, xem README.
 
-## tracks.parquet (TV2 tạo)
+## tracks.parquet (TV1 tạo bằng `scripts/make_tracks.py`)
 
 `video_id, frame_idx, track_id, x1, y1, x2, y2, det_conf`
 
-Mỗi `(video_id, frame_idx, track_id)` xuất hiện tối đa một lần. `scripts/make_tracks_tmp.py` sinh file tạm cùng schema.
+Kiểu: `video_id` chuỗi; `frame_idx`, `track_id` int64; `x1, y1, x2, y2, det_conf` float64. `frame_idx` 0-based, là số thứ tự frame đọc được; hộp pixel xyxy, đã clip vào khung, `x2 > x1`, `y2 > y1`.
+
+Mỗi `(video_id, frame_idx, track_id)` xuất hiện tối đa một lần. `scripts/make_tracks.py` sinh bản chính thức của TV1 (kèm `tracks_meta.json`); TV2 có thể thay bằng bản của mình nếu qua `src.data.tracks.validate_tracks(tracks, meta)` không vi phạm, khi đó phải chạy lại M1. Video không có người không có dòng nào (hợp lệ), được liệt kê ở `videos_without_tracks` trong `tracks_meta.json`.
 
 ## keypoints.parquet (TV2 tạo)
 

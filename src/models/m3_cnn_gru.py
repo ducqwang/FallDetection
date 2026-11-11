@@ -4,7 +4,7 @@ Khác với notebooks/05 cũ (tự index dữ liệu, tự chạy YOLO, tự đ�
 đúng hợp đồng chung của TV1/TV2:
   - Dữ liệu  : src.data.loader (metadata.csv, splits.json, read_frames) — KHÔNG tự quét thư mục.
   - Nhãn     : src.data.labels.window_label + select_main_track — KHÔNG tự định nghĩa sự kiện.
-  - Tracks   : tracks.parquet (TV2, hoặc scripts/make_tracks_tmp.py) — KHÔNG tự chạy detector.
+  - Tracks   : tracks.parquet (chính thức của TV1: scripts/make_tracks.py) — KHÔNG tự chạy detector.
   - Đánh giá : scripts/evaluate.py trên predictions.csv — CÙNG độ đo/T/split với M1, M2.
 
 Việc riêng của M3: crop người theo bbox -> nhúng CNN đóng băng -> GRU -> fall_score mỗi frame.
